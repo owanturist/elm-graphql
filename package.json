@@ -1,0 +1,14 @@
+{
+  "name": "elm-graphql",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "elm-test"
+  },
+  "author": "",
+  "license": "BSD3-3-Clause",
+  "devDependencies": {
+    "elm-test": "^0.18.12"
+  }
+}
