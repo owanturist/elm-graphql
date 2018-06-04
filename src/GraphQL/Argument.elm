@@ -3,13 +3,9 @@ module GraphQL.Argument exposing (Argument, array, bool, float, int, list, null,
 {-| Define GraphQL inputs in Elm
 
 
-# Argument
-
-@docs Argument
-
-
 # Primitives
 
+@docs Argument
 @docs string, int, float, bool, null
 
 
