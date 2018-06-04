@@ -42,10 +42,16 @@ type alias Argument =
 {-| Pass string argument into a graph.
 
     GraphQL.Selector.succeed Constructor
-        |> GraphQL.Selector.field "name"
+        |> GraphQL.Selector.field "fieldName"
             [ ( "asString", string "foo" )
             ]
             GraphQL.Selector.int
+
+Equals to:
+
+    """
+    fieldName(asString: "foo")
+    """
 
 -}
 string : String -> Argument
@@ -56,10 +62,16 @@ string =
 {-| Pass int argument into a graph.
 
     GraphQL.Selector.succeed Constructor
-        |> GraphQL.Selector.field "name"
+        |> GraphQL.Selector.field "fieldName"
             [ ( "asInt", int 1 )
             ]
             GraphQL.Selector.int
+
+Equals to:
+
+    """
+    fieldName(asInt: 1)
+    """
 
 -}
 int : Int -> Argument
@@ -70,10 +82,16 @@ int =
 {-| Pass float argument into a graph.
 
     GraphQL.Selector.succeed Constructor
-        |> GraphQL.Selector.field "name"
+        |> GraphQL.Selector.field "fieldName"
             [ ( "asFloat", float 3.14 )
             ]
             GraphQL.Selector.int
+
+Equals to:
+
+    """
+    fieldName(asFloat: 3.14)
+    """
 
 -}
 float : Float -> Argument
@@ -84,10 +102,16 @@ float =
 {-| Pass bool argument into a graph.
 
     GraphQL.Selector.succeed Constructor
-        |> GraphQL.Selector.field "name"
+        |> GraphQL.Selector.field "fieldName"
             [ ( "asBool", bool True )
             ]
             GraphQL.Selector.int
+
+Equals to:
+
+    """
+    fieldName(asBool: true)
+    """
 
 -}
 bool : Bool -> Argument
@@ -100,10 +124,16 @@ bool =
 {-| Pass null argument into a graph.
 
     GraphQL.Selector.succeed Constructor
-        |> GraphQL.Selector.field "name"
+        |> GraphQL.Selector.field "fieldName"
             [ ( "asNull", null )
             ]
             GraphQL.Selector.int
+
+Equals to:
+
+    """
+    fieldName(asNull: null)
+    """
 
 -}
 null : Argument
@@ -114,7 +144,7 @@ null =
 {-| Pass object of arguments into a graph.
 
     GraphQL.Selector.succeed Constructor
-        |> GraphQL.Selector.field "name"
+        |> GraphQL.Selector.field "fieldName"
             [ ( "asObject"
               , object
                     [ ( "asString", string "foo" )
@@ -127,6 +157,18 @@ null =
             ]
             GraphQL.Selector.int
 
+Equals to:
+
+    """
+    fieldName(asObject: {
+        asString: "foo",
+        asInt: 1,
+        asFloat: 3.14,
+        asBool: true,
+        asNull: null
+    })
+    """
+
 -}
 object : List ( String, Argument ) -> Argument
 object =
@@ -138,7 +180,7 @@ object =
 {-| Pass list of arguments into a graph.
 
     GraphQL.Selector.succeed Constructor
-        |> GraphQL.Selector.field "name"
+        |> GraphQL.Selector.field "fieldName"
             [ ( "asInConsistentList"
               , list
                     [ string "foo"
@@ -156,6 +198,15 @@ object =
             ]
             GraphQL.Selector.int
 
+Equals to:
+
+    """
+    fieldName(
+        asInConsistentList: ["foo", 0, false],
+        asConsistentList: [0, 1, 2]
+    )
+    """
+
 -}
 list : List Argument -> Argument
 list =
@@ -168,7 +219,7 @@ list =
 {-| Pass array of arguments into a graph.
 
     GraphQL.Selector.succeed Constructor
-        |> GraphQL.Selector.field "name"
+        |> GraphQL.Selector.field "fieldName"
             [ ( "asInConsistentArray"
               , array
                     (Array.fromList
@@ -189,6 +240,15 @@ list =
               )
             ]
             GraphQL.Selector.int
+
+Equals to:
+
+    """
+    fieldName(
+        asInConsistentList: ["foo", 0, false],
+        asConsistentList: [0, 1, 2]
+    )
+    """
 
 -}
 array : Array Argument -> Argument
