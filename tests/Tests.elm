@@ -110,7 +110,7 @@ selectorSheet =
                     |> Selector.field "baz" [] Selector.string
                     |> Selector.select
                     |> Tuple.first
-                    |> Expect.equal (Just "baz foo bar")
+                    |> Expect.equal (Just "bar foo baz")
         , test "Nested graph" <|
             \_ ->
                 Selector.succeed identity
@@ -146,5 +146,5 @@ selectorSheet =
                     |> Selector.field "baz" [] Selector.string
                     |> Selector.select
                     |> Tuple.first
-                    |> Expect.equal (Just "baz foo{baz1 foo1{baz2 foo2 bar2}bar1}bar")
+                    |> Expect.equal (Just "bar foo{bar1 foo1{bar2 foo2 baz2} baz1} baz")
         ]

@@ -43,13 +43,13 @@ field name arguments (Selector query1 decoder) (Selector query2 next) =
                     base
 
                 ( Nothing, Just query2 ) ->
-                    base ++ " " ++ query2
+                    query2 ++ " " ++ base
 
                 ( Just query1, Nothing ) ->
                     base ++ Internal.wrap "{" "}" query1
 
                 ( Just query1, Just query2 ) ->
-                    base ++ Internal.wrap "{" "}" query1 ++ query2
+                    query2 ++ " " ++ base ++ Internal.wrap "{" "}" query1
     in
     Selector (Just query) (Json.map2 (|>) decoder next)
 
