@@ -21,12 +21,7 @@ module GraphQL.Argument exposing (Argument, array, bool, float, int, list, null,
 -}
 
 import Array exposing (Array)
-import GraphQL.Internal as Internal
-
-
-wrap : String -> String -> String -> String
-wrap prefix postfix str =
-    prefix ++ str ++ postfix
+import GraphQL.Internal as Internal exposing (wrap)
 
 
 {-| Represents a GraphQL input values.
@@ -168,8 +163,9 @@ Equals to:
 -}
 object : List ( String, Argument ) -> Argument
 object =
-    Internal.namedArgumentsToString
-        >> wrap "{" "}"
+    Internal.renderArguments
+        >> Maybe.map (wrap "{" "}")
+        >> Maybe.withDefault ""
         >> Internal.Argument
 
 

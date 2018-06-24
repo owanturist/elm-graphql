@@ -1,12 +1,15 @@
 module GraphQL.Internal
     exposing
         ( Argument(..)
-        , Selector(..)
         , argumentToString
-        , namedArgumentsToString
+        , renderArguments
+        , wrap
         )
 
-import Json.Decode as Decode exposing (Decoder)
+
+wrap : String -> String -> String -> String
+wrap prefix postfix str =
+    prefix ++ str ++ postfix
 
 
 type Argument
@@ -18,18 +21,12 @@ argumentToString (Argument str) =
     str
 
 
-namedArgumentsToString : List ( String, Argument ) -> String
-namedArgumentsToString =
-    List.map (\( key, Argument input ) -> key ++ ":" ++ input)
-        >> String.join ","
-
-
-type Selector a
-    = Selector
-        (Maybe
-            { name : String
-            , alias : Maybe String
-            , arguments : List ( String, Argument )
-            }
-        )
-        (Decoder a)
+renderArguments : List ( String, Argument ) -> Maybe String
+renderArguments arguments =
+    if List.isEmpty arguments then
+        Nothing
+    else
+        arguments
+            |> List.map (\( key, Argument input ) -> key ++ ":" ++ input)
+            |> String.join ","
+            |> Just

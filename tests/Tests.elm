@@ -5,6 +5,7 @@ import Expect exposing (Expectation)
 import Fuzz
 import GraphQL.Argument as Argument
 import GraphQL.Internal as Internal
+import GraphQL.Selector as Selector
 import Test exposing (Test, describe, fuzz, test)
 
 
@@ -82,4 +83,68 @@ argumentSheet =
                     )
                     |> Internal.argumentToString
                     |> Expect.equal "[\"str\",1,3.14,[true,null]]"
+        ]
+
+
+selectorSheet : Test
+selectorSheet =
+    describe "Test GraphQL.Selector builder functions"
+        [ test "Empty graph" <|
+            \_ ->
+                Selector.string
+                    |> Selector.select
+                    |> Tuple.first
+                    |> Expect.equal Nothing
+        , test "Single graph" <|
+            \_ ->
+                Selector.succeed identity
+                    |> Selector.field "bar" [] Selector.string
+                    |> Selector.select
+                    |> Tuple.first
+                    |> Expect.equal (Just "bar")
+        , test "Multiple graph" <|
+            \_ ->
+                Selector.succeed (,,)
+                    |> Selector.field "bar" [] Selector.string
+                    |> Selector.field "foo" [] Selector.string
+                    |> Selector.field "baz" [] Selector.string
+                    |> Selector.select
+                    |> Tuple.first
+                    |> Expect.equal (Just "baz foo bar")
+        , test "Nested graph" <|
+            \_ ->
+                Selector.succeed identity
+                    |> Selector.field "bar"
+                        []
+                        (Selector.succeed identity
+                            |> Selector.field "foo"
+                                []
+                                (Selector.succeed identity
+                                    |> Selector.field "baz" [] Selector.string
+                                )
+                        )
+                    |> Selector.select
+                    |> Tuple.first
+                    |> Expect.equal (Just "bar{foo{baz}}")
+        , test "Nested multiple graph" <|
+            \_ ->
+                Selector.succeed (,,)
+                    |> Selector.field "bar" [] Selector.string
+                    |> Selector.field "foo"
+                        []
+                        (Selector.succeed (,,)
+                            |> Selector.field "bar1" [] Selector.string
+                            |> Selector.field "foo1"
+                                []
+                                (Selector.succeed (,,)
+                                    |> Selector.field "bar2" [] Selector.string
+                                    |> Selector.field "foo2" [] Selector.string
+                                    |> Selector.field "baz2" [] Selector.string
+                                )
+                            |> Selector.field "baz1" [] Selector.string
+                        )
+                    |> Selector.field "baz" [] Selector.string
+                    |> Selector.select
+                    |> Tuple.first
+                    |> Expect.equal (Just "baz foo{baz1 foo1{baz2 foo2 bar2}bar1}bar")
         ]
