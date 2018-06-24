@@ -172,4 +172,93 @@ selectorSheet =
                     |> Selector.select
                     |> Tuple.first
                     |> Expect.equal (Just "bar(foo:\"baz\"){bar1(foo1:\"baz1\")}")
+        , test "Aliased graph" <|
+            \_ ->
+                Selector.succeed identity
+                    |> Selector.aliased "foo" "bar" [] Selector.string
+                    |> Selector.select
+                    |> Tuple.first
+                    |> Expect.equal (Just "foo:bar")
+        , test "Aliased argumented graph" <|
+            \_ ->
+                Selector.succeed identity
+                    |> Selector.aliased "foo"
+                        "bar"
+                        [ ( "baz", Argument.int 0 )
+                        ]
+                        Selector.string
+                    |> Selector.select
+                    |> Tuple.first
+                    |> Expect.equal (Just "foo:bar(baz:0)")
+        , test "Full graph" <|
+            \_ ->
+                Selector.succeed (,,)
+                    |> Selector.aliased
+                        "bar"
+                        "bar_zero"
+                        [ ( "str", Argument.string "zero" )
+                        , ( "int", Argument.int 0 )
+                        ]
+                        Selector.string
+                    |> Selector.aliased
+                        "foo"
+                        "foo_zero"
+                        [ ( "str", Argument.string "zero" )
+                        , ( "int", Argument.int 0 )
+                        ]
+                        (Selector.succeed (,,)
+                            |> Selector.aliased
+                                "bar1"
+                                "bar_first"
+                                [ ( "str", Argument.string "first" )
+                                , ( "int", Argument.int 1 )
+                                ]
+                                Selector.string
+                            |> Selector.aliased
+                                "foo1"
+                                "foo_first"
+                                [ ( "str", Argument.string "first" )
+                                , ( "int", Argument.int 1 )
+                                ]
+                                (Selector.succeed (,,)
+                                    |> Selector.aliased
+                                        "bar2"
+                                        "bar_second"
+                                        [ ( "str", Argument.string "second" )
+                                        , ( "int", Argument.int 2 )
+                                        ]
+                                        Selector.string
+                                    |> Selector.aliased
+                                        "foo2"
+                                        "foo_second"
+                                        [ ( "str", Argument.string "second" )
+                                        , ( "int", Argument.int 2 )
+                                        ]
+                                        Selector.string
+                                    |> Selector.aliased
+                                        "baz2"
+                                        "baz_second"
+                                        [ ( "str", Argument.string "second" )
+                                        , ( "int", Argument.int 2 )
+                                        ]
+                                        Selector.string
+                                )
+                            |> Selector.aliased
+                                "baz1"
+                                "baz_first"
+                                [ ( "str", Argument.string "first" )
+                                , ( "int", Argument.int 1 )
+                                ]
+                                Selector.string
+                        )
+                    |> Selector.aliased
+                        "baz"
+                        "baz_zero"
+                        [ ( "str", Argument.string "zero" )
+                        , ( "int", Argument.int 0 )
+                        ]
+                        Selector.string
+                    |> Selector.select
+                    |> Tuple.first
+                    |> Expect.equal (Just "bar:bar_zero(str:\"zero\",int:0) foo:foo_zero(str:\"zero\",int:0){bar1:bar_first(str:\"first\",int:1) foo1:foo_first(str:\"first\",int:1){bar2:bar_second(str:\"second\",int:2) foo2:foo_second(str:\"second\",int:2) baz2:baz_second(str:\"second\",int:2)} baz1:baz_first(str:\"first\",int:1)} baz:baz_zero(str:\"zero\",int:0)")
         ]
