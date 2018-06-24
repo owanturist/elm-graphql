@@ -147,4 +147,29 @@ selectorSheet =
                     |> Selector.select
                     |> Tuple.first
                     |> Expect.equal (Just "bar foo{bar1 foo1{bar2 foo2 baz2} baz1} baz")
+        , test "Argumented graph" <|
+            \_ ->
+                Selector.succeed identity
+                    |> Selector.field "bar"
+                        [ ( "foo", Argument.string "baz" )
+                        ]
+                        Selector.string
+                    |> Selector.select
+                    |> Tuple.first
+                    |> Expect.equal (Just "bar(foo:\"baz\")")
+        , test "Nested argumented graph" <|
+            \_ ->
+                Selector.succeed identity
+                    |> Selector.field "bar"
+                        [ ( "foo", Argument.string "baz" )
+                        ]
+                        (Selector.succeed identity
+                            |> Selector.field "bar1"
+                                [ ( "foo1", Argument.string "baz1" )
+                                ]
+                                Selector.string
+                        )
+                    |> Selector.select
+                    |> Tuple.first
+                    |> Expect.equal (Just "bar(foo:\"baz\"){bar1(foo1:\"baz1\")}")
         ]

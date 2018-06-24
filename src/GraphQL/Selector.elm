@@ -28,30 +28,49 @@ float =
     Selector Nothing Json.float
 
 
-field : String -> List ( String, Argument ) -> Selector a -> Selector (a -> b) -> Selector b
-field name arguments (Selector query1 decoder) (Selector query2 next) =
+selector : Maybe String -> String -> List ( String, Argument ) -> Selector a -> Selector (a -> b) -> Selector b
+selector alias name arguments (Selector query1 decoder) (Selector query2 next) =
     let
-        base =
+        field =
+            case alias of
+                Nothing ->
+                    name
+
+                Just alias ->
+                    alias ++ ":" ++ name
+
+        args =
             Internal.renderArguments arguments
                 |> Maybe.map (Internal.wrap "(" ")")
                 |> Maybe.withDefault ""
-                |> (++) name
 
         query =
             case ( query1, query2 ) of
                 ( Nothing, Nothing ) ->
-                    base
+                    field ++ args
 
                 ( Nothing, Just query2 ) ->
-                    query2 ++ " " ++ base
+                    query2 ++ " " ++ field ++ args
 
                 ( Just query1, Nothing ) ->
-                    base ++ Internal.wrap "{" "}" query1
+                    field ++ args ++ Internal.wrap "{" "}" query1
 
                 ( Just query1, Just query2 ) ->
-                    query2 ++ " " ++ base ++ Internal.wrap "{" "}" query1
+                    query2 ++ " " ++ field ++ args ++ Internal.wrap "{" "}" query1
     in
-    Selector (Just query) (Json.map2 (|>) decoder next)
+    Json.map2 (|>) decoder next
+        |> Json.field (Maybe.withDefault name alias)
+        |> Selector (Just query)
+
+
+field : String -> List ( String, Argument ) -> Selector a -> Selector (a -> b) -> Selector b
+field =
+    selector Nothing
+
+
+aliased : String -> String -> List ( String, Argument ) -> Selector a -> Selector (a -> b) -> Selector b
+aliased =
+    selector << Just
 
 
 succeed : a -> Selector a
