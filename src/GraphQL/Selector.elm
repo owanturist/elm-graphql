@@ -6,7 +6,7 @@ module GraphQL.Selector
         , field
         , float
         , int
-        , select
+        , render
         , string
         , succeed
         )
@@ -27,7 +27,7 @@ module GraphQL.Selector
 
 # Run Selectors
 
-@docs select
+@docs render
 
 
 # Fancy Decoding
@@ -118,9 +118,9 @@ aliased =
 
 
 {-| -}
-select : Selector a -> ( Maybe String, Decoder a )
-select (Selector query decoder) =
-    ( query, decoder )
+render : Selector a -> Maybe String
+render (Selector query _) =
+    query
 
 
 {-| -}

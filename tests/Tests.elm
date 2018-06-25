@@ -92,15 +92,13 @@ selectorStructureSheet =
         [ test "Empty graph" <|
             \_ ->
                 Selector.string
-                    |> Selector.select
-                    |> Tuple.first
+                    |> Selector.render
                     |> Expect.equal Nothing
         , test "Single graph" <|
             \_ ->
                 Selector.succeed identity
                     |> Selector.field "bar" [] Selector.string
-                    |> Selector.select
-                    |> Tuple.first
+                    |> Selector.render
                     |> Expect.equal (Just "bar")
         , test "Multiple graph" <|
             \_ ->
@@ -108,8 +106,7 @@ selectorStructureSheet =
                     |> Selector.field "bar" [] Selector.string
                     |> Selector.field "foo" [] Selector.string
                     |> Selector.field "baz" [] Selector.string
-                    |> Selector.select
-                    |> Tuple.first
+                    |> Selector.render
                     |> Expect.equal (Just "bar foo baz")
         , test "Nested graph" <|
             \_ ->
@@ -123,8 +120,7 @@ selectorStructureSheet =
                                     |> Selector.field "baz" [] Selector.string
                                 )
                         )
-                    |> Selector.select
-                    |> Tuple.first
+                    |> Selector.render
                     |> Expect.equal (Just "bar{foo{baz}}")
         , test "Nested multiple graph" <|
             \_ ->
@@ -144,8 +140,7 @@ selectorStructureSheet =
                             |> Selector.field "baz1" [] Selector.string
                         )
                     |> Selector.field "baz" [] Selector.string
-                    |> Selector.select
-                    |> Tuple.first
+                    |> Selector.render
                     |> Expect.equal (Just "bar foo{bar1 foo1{bar2 foo2 baz2} baz1} baz")
         , test "Argumented graph" <|
             \_ ->
@@ -154,8 +149,7 @@ selectorStructureSheet =
                         [ ( "foo", Argument.string "baz" )
                         ]
                         Selector.string
-                    |> Selector.select
-                    |> Tuple.first
+                    |> Selector.render
                     |> Expect.equal (Just "bar(foo:\"baz\")")
         , test "Nested argumented graph" <|
             \_ ->
@@ -169,15 +163,13 @@ selectorStructureSheet =
                                 ]
                                 Selector.string
                         )
-                    |> Selector.select
-                    |> Tuple.first
+                    |> Selector.render
                     |> Expect.equal (Just "bar(foo:\"baz\"){bar1(foo1:\"baz1\")}")
         , test "Aliased graph" <|
             \_ ->
                 Selector.succeed identity
                     |> Selector.aliased "foo" "bar" [] Selector.string
-                    |> Selector.select
-                    |> Tuple.first
+                    |> Selector.render
                     |> Expect.equal (Just "foo:bar")
         , test "Aliased argumented graph" <|
             \_ ->
@@ -187,8 +179,7 @@ selectorStructureSheet =
                         [ ( "baz", Argument.int 0 )
                         ]
                         Selector.string
-                    |> Selector.select
-                    |> Tuple.first
+                    |> Selector.render
                     |> Expect.equal (Just "foo:bar(baz:0)")
         , test "Full graph" <|
             \_ ->
@@ -258,7 +249,6 @@ selectorStructureSheet =
                         , ( "int", Argument.int 0 )
                         ]
                         Selector.string
-                    |> Selector.select
-                    |> Tuple.first
+                    |> Selector.render
                     |> Expect.equal (Just "bar:bar_zero(str:\"zero\",int:0) foo:foo_zero(str:\"zero\",int:0){bar1:bar_first(str:\"first\",int:1) foo1:foo_first(str:\"first\",int:1){bar2:bar_second(str:\"second\",int:2) foo2:foo_second(str:\"second\",int:2) baz2:baz_second(str:\"second\",int:2)} baz1:baz_first(str:\"first\",int:1)} baz:baz_zero(str:\"zero\",int:0)")
         ]
