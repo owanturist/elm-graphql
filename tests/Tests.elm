@@ -1,6 +1,7 @@
 module Tests exposing (..)
 
 import Array
+import Dict
 import Expect exposing (Expectation)
 import Fuzz
 import GraphQL.Argument as Argument
@@ -516,16 +517,14 @@ selectorListSheet =
                 true
                 """
                     |> Selector.decodeString (Selector.list Selector.string)
-                    |> Expect.equal
-                        (Err "Expecting a List but instead got: true")
+                    |> Expect.equal (Err "Expecting a List but instead got: true")
         , test "Invalid source items with direct selector" <|
             \_ ->
                 """
                 ["first", 0, "second"]
                 """
                     |> Selector.decodeString (Selector.list Selector.string)
-                    |> Expect.equal
-                        (Err "Expecting a String at _[1] but instead got: 0")
+                    |> Expect.equal (Err "Expecting a String at _[1] but instead got: 0")
         , test "Valid source with direct selector" <|
             \_ ->
                 """
@@ -571,16 +570,14 @@ selectorArraySheet =
                 true
                 """
                     |> Selector.decodeString (Selector.array Selector.string)
-                    |> Expect.equal
-                        (Err "Expecting an Array but instead got: true")
+                    |> Expect.equal (Err "Expecting an Array but instead got: true")
         , test "Invalid source items with direct selector" <|
             \_ ->
                 """
                 ["first", 0, "second"]
                 """
                     |> Selector.decodeString (Selector.array Selector.string)
-                    |> Expect.equal
-                        (Err "Expecting a String at _[1] but instead got: 0")
+                    |> Expect.equal (Err "Expecting a String at _[1] but instead got: 0")
         , test "Valid source with direct selector" <|
             \_ ->
                 """
@@ -611,6 +608,92 @@ selectorArraySheet =
                         (Ok
                             ( Array.fromList [ True, False, False ]
                             , Array.fromList [ 1, 2, 0 ]
+                            )
+                        )
+        ]
+
+
+selectorDictSheet : Test
+selectorDictSheet =
+    let
+        fieldSelector =
+            Selector.succeed (,)
+                |> Selector.field "foo" [] (Selector.dict Selector.bool)
+                |> Selector.field "bar" [] (Selector.dict Selector.int)
+    in
+    describe "Test GraphQL.Selector.dict selector"
+        [ test "Invalid source with direct selector" <|
+            \_ ->
+                """
+                [true]
+                """
+                    |> Selector.decodeString (Selector.dict Selector.string)
+                    |> Expect.equal (Err "Expecting an object but instead got: [true]")
+        , test "Invalid source items with direct selector" <|
+            \_ ->
+                """
+                {
+                    "key1": true,
+                    "key2": "string value"
+                }
+                """
+                    |> Selector.decodeString (Selector.dict Selector.string)
+                    |> Expect.equal
+                        (Err "Expecting a String at _.key1 but instead got: true")
+        , test "Valid source with direct selector" <|
+            \_ ->
+                """
+                {
+                    "key1": "value 1",
+                    "key2": "value 2"
+                }
+                """
+                    |> Selector.decodeString (Selector.dict Selector.string)
+                    |> Expect.equal
+                        ([ ( "key1", "value 1" )
+                         , ( "key2", "value 2" )
+                         ]
+                            |> Dict.fromList
+                            |> Ok
+                        )
+        , test "Invalid source with field selector" <|
+            \_ ->
+                """
+                {
+                    "foo": 0,
+                    "bar": {
+                        "key1": 1,
+                        "key2": 2
+                    }
+                }
+                """
+                    |> Selector.decodeString fieldSelector
+                    |> Expect.equal (Err "Expecting an object at _.foo but instead got: 0")
+        , test "Valid source with field selector" <|
+            \_ ->
+                """
+                {
+                    "foo": {
+                        "key1": true,
+                        "key2": false
+                    },
+                    "bar": {
+                        "key3": 3,
+                        "key4": 4
+                    }
+                }
+                """
+                    |> Selector.decodeString fieldSelector
+                    |> Expect.equal
+                        (Ok
+                            ( Dict.fromList
+                                [ ( "key1", True )
+                                , ( "key2", False )
+                                ]
+                            , Dict.fromList
+                                [ ( "key3", 3 )
+                                , ( "key4", 4 )
+                                ]
                             )
                         )
         ]

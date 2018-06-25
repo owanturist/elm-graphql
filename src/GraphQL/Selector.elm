@@ -6,6 +6,7 @@ module GraphQL.Selector
         , bool
         , decodeString
         , decodeValue
+        , dict
         , field
         , float
         , int
@@ -27,7 +28,7 @@ module GraphQL.Selector
 
 # Data Structures
 
-@docs nullable, list, array
+@docs nullable, list, array, dict
 
 
 # Object Primitives
@@ -47,6 +48,7 @@ module GraphQL.Selector
 -}
 
 import Array exposing (Array)
+import Dict exposing (Dict)
 import GraphQL.Internal as Internal exposing (Argument)
 import Json.Decode as Json exposing (Decoder)
 
@@ -146,6 +148,17 @@ list (Selector query decoder) =
 array : Selector a -> Selector (Array a)
 array (Selector query decoder) =
     Selector query (Json.array decoder)
+
+
+{-| Decode a JSON object into an Elm `Dict`.
+
+    decodeString (dict int) "{ \"alice\": 42, \"bob\": 99 }"
+      == Dict.fromList [("alice", 42), ("bob", 99)]
+
+-}
+dict : Selector a -> Selector (Dict String a)
+dict (Selector query decoder) =
+    Selector query (Json.dict decoder)
 
 
 selector : Maybe String -> String -> List ( String, Argument ) -> Selector a -> Selector (a -> b) -> Selector b
