@@ -1158,3 +1158,90 @@ selectorOneOfSheet =
                     |> Selector.render
                     |> Expect.equal (Just "foo bar{baz boo}")
         ]
+
+
+selectorNullSheet : Test
+selectorNullSheet =
+    let
+        fieldSelector =
+            Selector.succeed (,)
+                |> Selector.field "foo" [] (Selector.null False)
+                |> Selector.field "bar" [] (Selector.null 1)
+    in
+    describe "Test GraphQL.Selector.null selector"
+        [ test "Same type source with direct selector" <|
+            \_ ->
+                """
+                42
+                """
+                    |> Selector.decodeString (Selector.null 42)
+                    |> Expect.equal (Err "Expecting null but instead got: 42")
+        , test "Different type source with direct selector" <|
+            \_ ->
+                """
+                false
+                """
+                    |> Selector.decodeString (Selector.null 42)
+                    |> Expect.equal (Err "Expecting null but instead got: false")
+        , test "Null source with direct selector" <|
+            \_ ->
+                """
+                null
+                """
+                    |> Selector.decodeString (Selector.null 42)
+                    |> Expect.equal (Ok 42)
+        , test "Same type source with field selector" <|
+            \_ ->
+                """
+                {
+                    "foo": false,
+                    "bar": null
+                }
+                """
+                    |> Selector.decodeString fieldSelector
+                    |> Expect.equal (Err "Expecting null at _.foo but instead got: false")
+        , test "Different type source with field selector" <|
+            \_ ->
+                """
+                {
+                    "foo": 0,
+                    "bar": null
+                }
+                """
+                    |> Selector.decodeString fieldSelector
+                    |> Expect.equal (Err "Expecting null at _.foo but instead got: 0")
+        , test "Valid source with field selector" <|
+            \_ ->
+                """
+                {
+                    "foo": null,
+                    "bar": null
+                }
+                """
+                    |> Selector.decodeString fieldSelector
+                    |> Expect.equal
+                        (Ok ( False, 1 ))
+        , test "Build graph" <|
+            \_ ->
+                Selector.render (Selector.keyValuePairs Selector.string)
+                    |> Expect.equal Nothing
+        , test "Build field graph" <|
+            \_ ->
+                Selector.succeed (,)
+                    |> Selector.field "foo" [] (Selector.keyValuePairs Selector.string)
+                    |> Selector.field "bar" [] (Selector.keyValuePairs Selector.string)
+                    |> Selector.render
+                    |> Expect.equal (Just "foo bar")
+        , test "Build field nested graph" <|
+            \_ ->
+                Selector.succeed (,)
+                    |> Selector.field "foo" [] (Selector.keyValuePairs Selector.string)
+                    |> Selector.field "bar"
+                        []
+                        (Selector.succeed identity
+                            |> Selector.field "baz" [] Selector.string
+                            |> Selector.keyValuePairs
+                        )
+                    |> Selector.render
+                    |> Expect.equal (Just "foo bar{baz}")
+        ]
