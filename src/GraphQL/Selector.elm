@@ -14,7 +14,9 @@ module GraphQL.Selector
         , keyValuePairs
         , list
         , maybe
+        , null
         , nullable
+        , oneOf
         , render
         , string
         , succeed
@@ -41,7 +43,7 @@ module GraphQL.Selector
 
 # Inconsistent Structure
 
-@docs maybe
+@docs maybe, oneOf
 
 
 # Run Selectors
@@ -51,7 +53,7 @@ module GraphQL.Selector
 
 # Fancy Decoding
 
-@docs succeed
+@docs succeed, null
 
 -}
 
@@ -264,6 +266,50 @@ maybe (Selector query decoder) =
     Selector query (Json.maybe decoder)
 
 
+{-| Try a bunch of different decoders. This can be useful if the JSON may come
+in a couple different formats. For example, say you want to read an array of
+numbers, but some of them are `null`.
+
+    badInt : Decoder Int
+    badInt =
+        oneOf [ int, null 0 ]
+
+
+    -- decodeString (list badInt) "[1,2,null,4]" == Ok [1,2,0,4]
+
+Why would someone generate JSON like this? Questions like this are not good
+for your health. The point is that you can use `oneOf` to handle situations
+like this!
+
+You could also use `oneOf` to help version your data. Try the latest format,
+then a few older ones that you still support. You could use `andThen` to be
+even more particular if you wanted.
+
+-}
+oneOf : List (Selector a) -> Selector a
+oneOf selectors =
+    let
+        ( queries, decoders ) =
+            List.foldr
+                (\(Selector query decoder) ( queries, decoders ) ->
+                    ( query :: queries
+                    , decoder :: decoders
+                    )
+                )
+                ( [], [] )
+                selectors
+
+        query =
+            case List.filterMap identity queries of
+                [] ->
+                    Nothing
+
+                many ->
+                    Just (String.join " " many)
+    in
+    Selector query (Json.oneOf decoders)
+
+
 {-| -}
 render : Selector a -> Maybe String
 render (Selector query _) =
@@ -286,3 +332,18 @@ decodeValue (Selector _ decoder) val =
 succeed : a -> Selector a
 succeed =
     Selector Nothing << Json.succeed
+
+
+{-| Decode a `null` value into some Elm value.
+
+    decodeString (null False) "null" == Ok False
+    decodeString (null 42) "null"    == Ok 42
+    decodeString (null 42) "42"      == Err ..
+    decodeString (null 42) "false"   == Err ..
+
+So if you ever see a `null`, this will return whatever value you specified.
+
+-}
+null : a -> Selector a
+null =
+    Selector Nothing << Json.null

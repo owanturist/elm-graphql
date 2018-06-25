@@ -877,3 +877,53 @@ selectorMaybeSheet =
                     |> flip Selector.decodeString json
                     |> Expect.equal (Err """Expecting an object with a field named `height` but instead got: {"name":"tom","age":42,"status":null}""")
         ]
+
+
+selectorOneOfSheet : Test
+selectorOneOfSheet =
+    describe "Test GraphQL.Selector.oneOf selector"
+        [ test "Empty list of Selectors" <|
+            \_ ->
+                """
+                null
+                """
+                    |> Selector.decodeString (Selector.oneOf [])
+                    |> Expect.equal (Err "I ran into the following problems:\n\n")
+        , test "Single type and invalid source" <|
+            \_ ->
+                """
+                0
+                """
+                    |> Selector.decodeString (Selector.oneOf [ Selector.string ])
+                    |> Expect.equal
+                        ("I ran into the following problems:\n"
+                            ++ "\nExpecting a String but instead got: 0"
+                            |> Err
+                        )
+        , test "Multiple type and invalid source" <|
+            \_ ->
+                """
+                0
+                """
+                    |> Selector.decodeString (Selector.oneOf [ Selector.string, Selector.null "default" ])
+                    |> Expect.equal
+                        ("I ran into the following problems:\n"
+                            ++ "\nExpecting a String but instead got: 0"
+                            ++ "\nExpecting null but instead got: 0"
+                            |> Err
+                        )
+        , test "Single type and valid source" <|
+            \_ ->
+                """
+                0
+                """
+                    |> Selector.decodeString (Selector.oneOf [ Selector.int ])
+                    |> Expect.equal (Ok 0)
+        , test "Multiple type and valid source" <|
+            \_ ->
+                """
+                [1, null, 2]
+                """
+                    |> Selector.decodeString (Selector.list (Selector.oneOf [ Selector.int, Selector.null 0 ]))
+                    |> Expect.equal (Ok [ 1, 0, 2 ])
+        ]
