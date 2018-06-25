@@ -436,3 +436,66 @@ selectorFloatSheet =
                     |> Selector.decodeString fieldSelector
                     |> Expect.equal (Ok ( 0, 3.1 ))
         ]
+
+
+selectorNullableSheet : Test
+selectorNullableSheet =
+    let
+        fieldSelector =
+            Selector.succeed (,)
+                |> Selector.field "foo" [] (Selector.nullable Selector.string)
+                |> Selector.field "bar" [] (Selector.nullable Selector.string)
+    in
+    describe "Test GraphQL.Selector.nullable selector"
+        [ test "Invalid source with direct selector" <|
+            \_ ->
+                """
+                true
+                """
+                    |> Selector.decodeString (Selector.nullable Selector.string)
+                    |> Expect.equal
+                        ("I ran into the following problems:\n"
+                            ++ "\nExpecting null but instead got: true"
+                            ++ "\nExpecting a String but instead got: true"
+                            |> Err
+                        )
+        , test "Valid nullable source with direct selector" <|
+            \_ ->
+                """
+                null
+                """
+                    |> Selector.decodeString (Selector.nullable Selector.string)
+                    |> Expect.equal (Ok Nothing)
+        , test "Valid source with direct selector" <|
+            \_ ->
+                """
+                "string value"
+                """
+                    |> Selector.decodeString (Selector.nullable Selector.string)
+                    |> Expect.equal (Ok (Just "string value"))
+        , test "Invalid source with field selector" <|
+            \_ ->
+                """
+                {
+                    "foo": 0,
+                    "bar": "string value"
+                }
+                """
+                    |> Selector.decodeString fieldSelector
+                    |> Expect.equal
+                        ("I ran into the following problems at _.foo:\n"
+                            ++ "\nExpecting null but instead got: 0"
+                            ++ "\nExpecting a String but instead got: 0"
+                            |> Err
+                        )
+        , test "Valid source with field selector" <|
+            \_ ->
+                """
+                {
+                    "foo": null,
+                    "bar": "string value"
+                }
+                """
+                    |> Selector.decodeString fieldSelector
+                    |> Expect.equal (Ok ( Nothing, Just "string value" ))
+        ]

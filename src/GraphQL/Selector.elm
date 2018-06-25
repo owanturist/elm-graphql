@@ -8,6 +8,7 @@ module GraphQL.Selector
         , field
         , float
         , int
+        , nullable
         , render
         , string
         , succeed
@@ -20,6 +21,11 @@ module GraphQL.Selector
 
 @docs Selector
 @docs string, bool, int, float
+
+
+# Data Structures
+
+@docs nullable
 
 
 # Object Primitives
@@ -50,11 +56,11 @@ type Selector a
 
 {-| Decode a JSON string into an Elm `String`.
 
-    selector : Selector ( String, String )
-    selector =
-        Selector.succeed (,)
-            |> Selector.field "first" [] Selector.string
-            |> Selector.field "second" [] Selector.string
+    decodeString string "true"              == Err ...
+    decodeString string "42"                == Err ...
+    decodeString string "3.14"              == Err ...
+    decodeString string "\"hello\""         == Ok "hello"
+    decodeString string "{ \"hello\": 42 }" == Err ...
 
 -}
 string : Selector String
@@ -64,11 +70,11 @@ string =
 
 {-| Decode a JSON string into an Elm `Bool`.
 
-    selector : Selector ( Bool, Bool )
-    selector =
-        Selector.succeed (,)
-            |> Selector.field "first" [] Selector.bool
-            |> Selector.field "second" [] Selector.bool
+    decodeString bool "true"              == Ok True
+    decodeString bool "42"                == Err ...
+    decodeString bool "3.14"              == Err ...
+    decodeString bool "\"hello\""         == Err ...
+    decodeString bool "{ \"hello\": 42 }" == Err ...
 
 -}
 bool : Selector Bool
@@ -78,11 +84,11 @@ bool =
 
 {-| Decode a JSON number into an Elm `Int`.
 
-    selector : Selector ( Int, Int )
-    selector =
-        Selector.succeed (,)
-            |> Selector.field "first" [] Selector.int
-            |> Selector.field "second" [] Selector.int
+    decodeString int "true"              == Err ...
+    decodeString int "42"                == Ok 42
+    decodeString int "3.14"              == Err ...
+    decodeString int "\"hello\""         == Err ...
+    decodeString int "{ \"hello\": 42 }" == Err ...
 
 -}
 int : Selector Int
@@ -92,16 +98,29 @@ int =
 
 {-| Decode a JSON number into an Elm `Float`.
 
-    selector : Selector ( Float, Float )
-    selector =
-        Selector.succeed (,)
-            |> Selector.field "first" [] Selector.float
-            |> Selector.field "second" [] Selector.float
+    decodeString float "true"              == Err ..
+    decodeString float "42"                == Ok 42
+    decodeString float "3.14"              == Ok 3.14
+    decodeString float "\"hello\""         == Err ...
+    decodeString float "{ \"hello\": 42 }" == Err ...
 
 -}
 float : Selector Float
 float =
     Selector Nothing Json.float
+
+
+{-| Decode a nullable JSON value into an Elm value.
+
+    decodeString (nullable int) "13"    == Ok (Just 13)
+    decodeString (nullable int) "42"    == Ok (Just 42)
+    decodeString (nullable int) "null"  == Ok Nothing
+    decodeString (nullable int) "true"  == Err ...
+
+-}
+nullable : Selector a -> Selector (Maybe a)
+nullable (Selector query decoder) =
+    Selector query (Json.nullable decoder)
 
 
 selector : Maybe String -> String -> List ( String, Argument ) -> Selector a -> Selector (a -> b) -> Selector b
