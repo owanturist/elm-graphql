@@ -258,8 +258,9 @@ selectorStringSheet : Test
 selectorStringSheet =
     let
         fieldSelector =
-            Selector.succeed identity
+            Selector.succeed (,)
                 |> Selector.field "foo" [] Selector.string
+                |> Selector.field "bar" [] Selector.string
     in
     describe "Test GraphQL.Selector.string selector"
         [ test "Invalid source with direct selector" <|
@@ -280,7 +281,8 @@ selectorStringSheet =
             \_ ->
                 """
                 {
-                    "foo": 0
+                    "foo": 0,
+                    "bar": "another value"
                 }
                 """
                     |> Selector.decodeString fieldSelector
@@ -289,9 +291,56 @@ selectorStringSheet =
             \_ ->
                 """
                 {
-                    "foo": "string value"
+                    "foo": "string value",
+                    "bar": "another value"
                 }
                 """
                     |> Selector.decodeString fieldSelector
-                    |> Expect.equal (Ok "string value")
+                    |> Expect.equal (Ok ( "string value", "another value" ))
+        ]
+
+
+selectorBoolSheet : Test
+selectorBoolSheet =
+    let
+        fieldSelector =
+            Selector.succeed (,)
+                |> Selector.field "foo" [] Selector.bool
+                |> Selector.field "bar" [] Selector.bool
+    in
+    describe "Test GraphQL.Selector.bool selector"
+        [ test "Invalid source with direct selector" <|
+            \_ ->
+                """
+                0
+                """
+                    |> Selector.decodeString Selector.bool
+                    |> Expect.equal (Err "Expecting a Bool but instead got: 0")
+        , test "Valid source with direct selector" <|
+            \_ ->
+                """
+                false
+                """
+                    |> Selector.decodeString Selector.bool
+                    |> Expect.equal (Ok False)
+        , test "Invalid source with field selector" <|
+            \_ ->
+                """
+                {
+                    "foo": 0,
+                    "bar": true
+                }
+                """
+                    |> Selector.decodeString fieldSelector
+                    |> Expect.equal (Err "Expecting a Bool at _.foo but instead got: 0")
+        , test "Valid source with field selector" <|
+            \_ ->
+                """
+                {
+                    "foo": true,
+                    "bar": false
+                }
+                """
+                    |> Selector.decodeString fieldSelector
+                    |> Expect.equal (Ok ( True, False ))
         ]

@@ -48,7 +48,7 @@ type Selector a
     = Selector (Maybe String) (Decoder a)
 
 
-{-| Decode a JSON string into an Elm String.
+{-| Decode a JSON string into an Elm `String`.
 
     selector : Selector ( String, String )
     selector =
@@ -62,7 +62,15 @@ string =
     Selector Nothing Json.string
 
 
-{-| -}
+{-| Decode a JSON string into an Elm `Bool`.
+
+    selector : Selector ( Bool, Bool )
+    selector =
+        Selector.succeed (,)
+            |> Selector.field "first" [] Selector.bool
+            |> Selector.field "second" [] Selector.bool
+
+-}
 bool : Selector Bool
 bool =
     Selector Nothing Json.bool
@@ -83,7 +91,10 @@ float =
 selector : Maybe String -> String -> List ( String, Argument ) -> Selector a -> Selector (a -> b) -> Selector b
 selector alias name arguments (Selector query1 decoder) (Selector query2 next) =
     let
-        field =
+        fieldDecoder =
+            Json.field (Maybe.withDefault name alias) decoder
+
+        fieldOrAlias =
             case alias of
                 Nothing ->
                     name
@@ -99,20 +110,18 @@ selector alias name arguments (Selector query1 decoder) (Selector query2 next) =
         query =
             case ( query1, query2 ) of
                 ( Nothing, Nothing ) ->
-                    field ++ args
+                    fieldOrAlias ++ args
 
                 ( Nothing, Just prev ) ->
-                    prev ++ " " ++ field ++ args
+                    prev ++ " " ++ fieldOrAlias ++ args
 
                 ( Just child, Nothing ) ->
-                    field ++ args ++ Internal.wrap "{" "}" child
+                    fieldOrAlias ++ args ++ Internal.wrap "{" "}" child
 
                 ( Just child, Just prev ) ->
-                    prev ++ " " ++ field ++ args ++ Internal.wrap "{" "}" child
+                    prev ++ " " ++ fieldOrAlias ++ args ++ Internal.wrap "{" "}" child
     in
-    Json.map2 (|>) decoder next
-        |> Json.field (Maybe.withDefault name alias)
-        |> Selector (Just query)
+    Selector (Just query) (Json.map2 (|>) fieldDecoder next)
 
 
 {-| -}
