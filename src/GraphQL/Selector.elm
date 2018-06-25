@@ -1,28 +1,70 @@
-module GraphQL.Selector exposing (..)
+module GraphQL.Selector
+    exposing
+        ( Selector
+        , aliased
+        , bool
+        , field
+        , float
+        , int
+        , select
+        , string
+        , succeed
+        )
+
+{-| Build GraphQL with decoders for turning JSON values into Elm values.
+
+
+# Primitives
+
+@docs Selector
+@docs string, bool, int, float
+
+
+# Object Primitives
+
+@docs field, aliased
+
+
+# Run Selectors
+
+@docs select
+
+
+# Fancy Decoding
+
+@docs succeed
+
+-}
 
 import GraphQL.Internal as Internal exposing (Argument)
 import Json.Decode as Json exposing (Decoder)
 
 
+{-| A value that knows how to select (receive and decode) a GraphQL values.
+-}
 type Selector a
     = Selector (Maybe String) (Decoder a)
 
 
+{-| -}
 string : Selector String
 string =
     Selector Nothing Json.string
 
 
+{-| -}
 bool : Selector Bool
 bool =
     Selector Nothing Json.bool
 
 
+{-| -}
 int : Selector Int
 int =
     Selector Nothing Json.int
 
 
+{-| -}
 float : Selector Float
 float =
     Selector Nothing Json.float
@@ -63,21 +105,25 @@ selector alias name arguments (Selector query1 decoder) (Selector query2 next) =
         |> Selector (Just query)
 
 
+{-| -}
 field : String -> List ( String, Argument ) -> Selector a -> Selector (a -> b) -> Selector b
 field =
     selector Nothing
 
 
+{-| -}
 aliased : String -> String -> List ( String, Argument ) -> Selector a -> Selector (a -> b) -> Selector b
 aliased =
     selector << Just
 
 
-succeed : a -> Selector a
-succeed =
-    Selector Nothing << Json.succeed
-
-
+{-| -}
 select : Selector a -> ( Maybe String, Decoder a )
 select (Selector query decoder) =
     ( query, decoder )
+
+
+{-| -}
+succeed : a -> Selector a
+succeed =
+    Selector Nothing << Json.succeed

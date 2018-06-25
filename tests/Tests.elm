@@ -86,9 +86,9 @@ argumentSheet =
         ]
 
 
-selectorSheet : Test
-selectorSheet =
-    describe "Test GraphQL.Selector builder functions"
+selectorStructureSheet : Test
+selectorStructureSheet =
+    describe "Test GraphQL.Selector graph structure builder functions"
         [ test "Empty graph" <|
             \_ ->
                 Selector.string
