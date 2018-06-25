@@ -697,3 +697,86 @@ selectorDictSheet =
                             )
                         )
         ]
+
+
+selectorKeyValuePairsSheet : Test
+selectorKeyValuePairsSheet =
+    let
+        fieldSelector =
+            Selector.succeed (,)
+                |> Selector.field "foo" [] (Selector.keyValuePairs Selector.bool)
+                |> Selector.field "bar" [] (Selector.keyValuePairs Selector.int)
+    in
+    describe "Test GraphQL.Selector.keyValuePairs selector"
+        [ test "Invalid source with direct selector" <|
+            \_ ->
+                """
+                [true]
+                """
+                    |> Selector.decodeString (Selector.keyValuePairs Selector.string)
+                    |> Expect.equal (Err "Expecting an object but instead got: [true]")
+        , test "Invalid source items with direct selector" <|
+            \_ ->
+                """
+                {
+                    "key1": true,
+                    "key2": "string value"
+                }
+                """
+                    |> Selector.decodeString (Selector.keyValuePairs Selector.string)
+                    |> Expect.equal
+                        (Err "Expecting a String at _.key1 but instead got: true")
+        , test "Valid source with direct selector" <|
+            \_ ->
+                """
+                {
+                    "key1": "value 1",
+                    "key2": "value 2"
+                }
+                """
+                    |> Selector.decodeString (Selector.keyValuePairs Selector.string)
+                    |> Expect.equal
+                        (Ok
+                            [ ( "key2", "value 2" )
+                            , ( "key1", "value 1" )
+                            ]
+                        )
+        , test "Invalid source with field selector" <|
+            \_ ->
+                """
+                {
+                    "foo": 0,
+                    "bar": {
+                        "key1": 1,
+                        "key2": 2
+                    }
+                }
+                """
+                    |> Selector.decodeString fieldSelector
+                    |> Expect.equal (Err "Expecting an object at _.foo but instead got: 0")
+        , test "Valid source with field selector" <|
+            \_ ->
+                """
+                {
+                    "foo": {
+                        "key1": true,
+                        "key2": false
+                    },
+                    "bar": {
+                        "key3": 3,
+                        "key4": 4
+                    }
+                }
+                """
+                    |> Selector.decodeString fieldSelector
+                    |> Expect.equal
+                        (Ok
+                            ( [ ( "key2", False )
+                              , ( "key1", True )
+                              ]
+                            , [ ( "key4", 4 )
+                              , ( "key3", 3 )
+                              ]
+                            )
+                        )
+        ]

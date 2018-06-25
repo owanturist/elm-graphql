@@ -10,6 +10,7 @@ module GraphQL.Selector
         , field
         , float
         , int
+        , keyValuePairs
         , list
         , nullable
         , render
@@ -28,7 +29,7 @@ module GraphQL.Selector
 
 # Data Structures
 
-@docs nullable, list, array, dict
+@docs nullable, list, array, dict, keyValuePairs
 
 
 # Object Primitives
@@ -159,6 +160,17 @@ array (Selector query decoder) =
 dict : Selector a -> Selector (Dict String a)
 dict (Selector query decoder) =
     Selector query (Json.dict decoder)
+
+
+{-| Decode a JSON object into an Elm `List` of pairs.
+
+    decodeString (keyValuePairs int) "{ \"alice\": 42, \"bob\": 99 }"
+      == [("alice", 42), ("bob", 99)]
+
+-}
+keyValuePairs : Selector a -> Selector (List ( String, a ))
+keyValuePairs (Selector query decoder) =
+    Selector query (Json.keyValuePairs decoder)
 
 
 selector : Maybe String -> String -> List ( String, Argument ) -> Selector a -> Selector (a -> b) -> Selector b
