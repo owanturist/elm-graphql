@@ -8,6 +8,7 @@ module GraphQL.Selector
         , field
         , float
         , int
+        , list
         , nullable
         , render
         , string
@@ -25,7 +26,7 @@ module GraphQL.Selector
 
 # Data Structures
 
-@docs nullable
+@docs nullable, list
 
 
 # Object Primitives
@@ -121,6 +122,17 @@ float =
 nullable : Selector a -> Selector (Maybe a)
 nullable (Selector query decoder) =
     Selector query (Json.nullable decoder)
+
+
+{-| Decode a JSON array into an Elm `List`.
+
+    decodeString (list int) "[1,2,3]"       == Ok [1,2,3]
+    decodeString (list bool) "[true,false]" == Ok [True,False]
+
+-}
+list : Selector a -> Selector (List a)
+list (Selector query decoder) =
+    Selector query (Json.list decoder)
 
 
 selector : Maybe String -> String -> List ( String, Argument ) -> Selector a -> Selector (a -> b) -> Selector b
