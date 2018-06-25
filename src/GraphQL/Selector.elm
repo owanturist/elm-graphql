@@ -76,7 +76,7 @@ bool =
     Selector Nothing Json.bool
 
 
-{-| Decode a JSON string into an Elm `Int`.
+{-| Decode a JSON number into an Elm `Int`.
 
     selector : Selector ( Int, Int )
     selector =
@@ -90,7 +90,15 @@ int =
     Selector Nothing Json.int
 
 
-{-| -}
+{-| Decode a JSON number into an Elm `Float`.
+
+    selector : Selector ( Float, Float )
+    selector =
+        Selector.succeed (,)
+            |> Selector.field "first" [] Selector.float
+            |> Selector.field "second" [] Selector.float
+
+-}
 float : Selector Float
 float =
     Selector Nothing Json.float

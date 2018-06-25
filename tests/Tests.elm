@@ -390,3 +390,49 @@ selectorIntSheet =
                     |> Selector.decodeString fieldSelector
                     |> Expect.equal (Ok ( 2, 3 ))
         ]
+
+
+selectorFloatSheet : Test
+selectorFloatSheet =
+    let
+        fieldSelector =
+            Selector.succeed (,)
+                |> Selector.field "foo" [] Selector.float
+                |> Selector.field "bar" [] Selector.float
+    in
+    describe "Test GraphQL.Selector.float selector"
+        [ test "Invalid source with direct selector" <|
+            \_ ->
+                """
+                false
+                """
+                    |> Selector.decodeString Selector.float
+                    |> Expect.equal (Err "Expecting a Float but instead got: false")
+        , test "Valid source with direct selector" <|
+            \_ ->
+                """
+                1
+                """
+                    |> Selector.decodeString Selector.float
+                    |> Expect.equal (Ok 1)
+        , test "Invalid source with field selector" <|
+            \_ ->
+                """
+                {
+                    "foo": "string value",
+                    "bar": 0
+                }
+                """
+                    |> Selector.decodeString fieldSelector
+                    |> Expect.equal (Err "Expecting a Float at _.foo but instead got: \"string value\"")
+        , test "Valid source with field selector" <|
+            \_ ->
+                """
+                {
+                    "foo": 0,
+                    "bar": 3.1
+                }
+                """
+                    |> Selector.decodeString fieldSelector
+                    |> Expect.equal (Ok ( 0, 3.1 ))
+        ]
