@@ -780,3 +780,60 @@ selectorKeyValuePairsSheet =
                             )
                         )
         ]
+
+
+selectorIndexSheet : Test
+selectorIndexSheet =
+    let
+        fieldSelector =
+            Selector.succeed (,)
+                |> Selector.field "foo" [] (Selector.index 0 Selector.int)
+                |> Selector.field "bar" [] (Selector.index 1 Selector.string)
+    in
+    describe "Test GraphQL.Selector.index selector"
+        [ test "Invalid source with direct selector" <|
+            \_ ->
+                """
+                true
+                """
+                    |> Selector.decodeString (Selector.index 1 Selector.string)
+                    |> Expect.equal (Err "Expecting an array but instead got: true")
+        , test "Valid short source with direct selector" <|
+            \_ ->
+                """
+                []
+                """
+                    |> Selector.decodeString (Selector.index 0 Selector.string)
+                    |> Expect.equal
+                        ("Expecting a longer array. "
+                            ++ "Need index 0 but there are only 0 entries but instead got: []"
+                            |> Err
+                        )
+        , test "Valid source with direct selector" <|
+            \_ ->
+                """
+                [null, "string value"]
+                """
+                    |> Selector.decodeString (Selector.index 1 Selector.string)
+                    |> Expect.equal (Ok "string value")
+        , test "Invalid source with field selector" <|
+            \_ ->
+                """
+                {
+                    "foo": 0,
+                    "bar": [true, "string value", null, 1]
+                }
+                """
+                    |> Selector.decodeString fieldSelector
+                    |> Expect.equal (Err "Expecting an array at _.foo but instead got: 0")
+        , test "Valid source with field selector" <|
+            \_ ->
+                """
+                {
+                    "foo": [0, null, "string", false],
+                    "bar": [true, "string value", null, 1]
+                }
+                """
+                    |> Selector.decodeString fieldSelector
+                    |> Expect.equal (Ok ( 0, "string value" ))
+        ]

@@ -9,6 +9,7 @@ module GraphQL.Selector
         , dict
         , field
         , float
+        , index
         , int
         , keyValuePairs
         , list
@@ -34,7 +35,7 @@ module GraphQL.Selector
 
 # Object Primitives
 
-@docs field, aliased
+@docs field, aliased, index
 
 
 # Run Selectors
@@ -219,6 +220,21 @@ field =
 aliased : String -> String -> List ( String, Argument ) -> Selector a -> Selector (a -> b) -> Selector b
 aliased =
     selector << Just
+
+
+{-| Decode a JSON array, requiring a particular index.
+
+    json = """[ "alice", "bob", "chuck" ]"""
+
+    decodeString (index 0 string) json  == Ok "alice"
+    decodeString (index 1 string) json  == Ok "bob"
+    decodeString (index 2 string) json  == Ok "chuck"
+    decodeString (index 3 string) json  == Err ...
+
+-}
+index : Int -> Selector a -> Selector a
+index i (Selector query decoder) =
+    Selector query (Json.index i decoder)
 
 
 {-| -}
