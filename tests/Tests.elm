@@ -53,7 +53,7 @@ argumentSheet =
                     , ( "asNull", Argument.null )
                     ]
                     |> Internal.argumentToString
-                    |> Expect.equal "{asString:\"str\",asInt:1,asFloat:3.14,asBool:true,asNull:null}"
+                    |> Expect.equal """{asString:"str",asInt:1,asFloat:3.14,asBool:true,asNull:null}"""
         , test "GraphQL.Argument.list" <|
             \_ ->
                 Argument.list
@@ -66,7 +66,7 @@ argumentSheet =
                         ]
                     ]
                     |> Internal.argumentToString
-                    |> Expect.equal "[\"str\",1,3.14,[true,null]]"
+                    |> Expect.equal """["str",1,3.14,[true,null]]"""
         , test "GraphQL.Argument.array" <|
             \_ ->
                 Argument.array
@@ -83,7 +83,7 @@ argumentSheet =
                         ]
                     )
                     |> Internal.argumentToString
-                    |> Expect.equal "[\"str\",1,3.14,[true,null]]"
+                    |> Expect.equal """["str",1,3.14,[true,null]]"""
         ]
 
 
@@ -151,7 +151,7 @@ selectorStructureSheet =
                         ]
                         Selector.string
                     |> Selector.render
-                    |> Expect.equal (Just "bar(foo:\"baz\")")
+                    |> Expect.equal (Just """bar(foo:"baz")""")
         , test "Nested argumented graph" <|
             \_ ->
                 Selector.succeed identity
@@ -165,7 +165,7 @@ selectorStructureSheet =
                                 Selector.string
                         )
                     |> Selector.render
-                    |> Expect.equal (Just "bar(foo:\"baz\"){bar1(foo1:\"baz1\")}")
+                    |> Expect.equal (Just """bar(foo:"baz"){bar1(foo1:"baz1")}""")
         , test "Aliased graph" <|
             \_ ->
                 Selector.succeed identity
@@ -251,7 +251,7 @@ selectorStructureSheet =
                         ]
                         Selector.string
                     |> Selector.render
-                    |> Expect.equal (Just "bar:bar_zero(str:\"zero\",int:0) foo:foo_zero(str:\"zero\",int:0){bar1:bar_first(str:\"first\",int:1) foo1:foo_first(str:\"first\",int:1){bar2:bar_second(str:\"second\",int:2) foo2:foo_second(str:\"second\",int:2) baz2:baz_second(str:\"second\",int:2)} baz1:baz_first(str:\"first\",int:1)} baz:baz_zero(str:\"zero\",int:0)")
+                    |> Expect.equal (Just """bar:bar_zero(str:"zero",int:0) foo:foo_zero(str:"zero",int:0){bar1:bar_first(str:"first",int:1) foo1:foo_first(str:"first",int:1){bar2:bar_second(str:"second",int:2) foo2:foo_second(str:"second",int:2) baz2:baz_second(str:"second",int:2)} baz1:baz_first(str:"first",int:1)} baz:baz_zero(str:"zero",int:0)""")
         ]
 
 
@@ -836,4 +836,44 @@ selectorIndexSheet =
                 """
                     |> Selector.decodeString fieldSelector
                     |> Expect.equal (Ok ( 0, "string value" ))
+        ]
+
+
+selectorMaybeSheet : Test
+selectorMaybeSheet =
+    let
+        json =
+            """
+            {
+                "name": "tom",
+                "age": 42,
+                "status": null
+            }
+            """
+    in
+    describe "Test GraphQL.Selector.maybe selector"
+        [ test "Valid type of existing field" <|
+            \_ ->
+                Selector.succeed identity
+                    |> Selector.field "age" [] (Selector.maybe Selector.int)
+                    |> flip Selector.decodeString json
+                    |> Expect.equal (Ok (Just 42))
+        , test "Invalid type of existing field" <|
+            \_ ->
+                Selector.succeed identity
+                    |> Selector.field "name" [] (Selector.maybe Selector.int)
+                    |> flip Selector.decodeString json
+                    |> Expect.equal (Ok Nothing)
+        , test "Null type of existing field" <|
+            \_ ->
+                Selector.succeed identity
+                    |> Selector.field "status" [] (Selector.maybe Selector.int)
+                    |> flip Selector.decodeString json
+                    |> Expect.equal (Ok Nothing)
+        , test "Not existing field" <|
+            \_ ->
+                Selector.succeed identity
+                    |> Selector.field "height" [] (Selector.maybe Selector.int)
+                    |> flip Selector.decodeString json
+                    |> Expect.equal (Err """Expecting an object with a field named `height` but instead got: {"name":"tom","age":42,"status":null}""")
         ]

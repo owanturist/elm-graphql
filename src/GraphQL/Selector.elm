@@ -13,6 +13,7 @@ module GraphQL.Selector
         , int
         , keyValuePairs
         , list
+        , maybe
         , nullable
         , render
         , string
@@ -36,6 +37,11 @@ module GraphQL.Selector
 # Object Primitives
 
 @docs field, aliased, index
+
+
+# Inconsistent Structure
+
+@docs maybe
 
 
 # Run Selectors
@@ -235,6 +241,27 @@ aliased =
 index : Int -> Selector a -> Selector a
 index i (Selector query decoder) =
     Selector query (Json.index i decoder)
+
+
+{-| Helpful for dealing with optional fields. Here are a few slightly different examples:
+
+    json = """{ "name": "tom", "age": 42 }"""
+
+    decodeString (succeed identity |> field "age" [] (maybe int)) json    == Ok (Just 42)
+    decodeString (succeed identity |> field "name" [] (maybe int)) json   == Ok Nothing
+    decodeString (succeed identity |> field "height" [] (maybe int)) json == Err ...
+
+Notice the last example!
+It is saying we must have a field named `height` and the content may be a float.
+There is no `height` field, so the decoder fails.
+
+Point is, `maybe` will make exactly what it contains conditional.
+For optional fields, this means you probably want it outside a use of `field` or `at`.
+
+-}
+maybe : Selector a -> Selector (Maybe a)
+maybe (Selector query decoder) =
+    Selector query (Json.maybe decoder)
 
 
 {-| -}
