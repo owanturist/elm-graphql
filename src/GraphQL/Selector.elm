@@ -1,18 +1,23 @@
 module GraphQL.Selector
     exposing
         ( Selector
+        , Value
         , aliased
+        , andThen
         , array
         , bool
         , decodeString
         , decodeValue
         , dict
+        , fail
         , field
         , float
         , index
         , int
         , keyValuePairs
+        , lazy
         , list
+        , map
         , maybe
         , null
         , nullable
@@ -20,6 +25,7 @@ module GraphQL.Selector
         , render
         , string
         , succeed
+        , value
         )
 
 {-| Build GraphQL with decoders for turning JSON values into Elm values.
@@ -48,12 +54,13 @@ module GraphQL.Selector
 
 # Run Selectors
 
+@docs Value
 @docs render, decodeString, decodeValue
 
 
 # Fancy Decoding
 
-@docs succeed, null
+@docs map, andThen, succeed, fail, lazy, value, null
 
 -}
 
@@ -310,6 +317,12 @@ oneOf selectors =
     Selector query (Json.oneOf decoders)
 
 
+{-| A JSON value.
+-}
+type alias Value =
+    Json.Value
+
+
 {-| -}
 render : Selector a -> Maybe String
 render (Selector query _) =
@@ -323,15 +336,106 @@ decodeString (Selector _ decoder) str =
 
 
 {-| -}
-decodeValue : Selector a -> Json.Value -> Result String a
+decodeValue : Selector a -> Value -> Result String a
 decodeValue (Selector _ decoder) val =
     Json.decodeValue decoder val
+
+
+{-| Transform a decoder. Maybe you just want to know the length of a string:
+
+    stringLength : Selector Int
+    stringLength =
+        map String.length string
+
+It is often helpful to use `map` with `oneOf`, like when defining `nullable`:
+
+    nullable : Selector a -> Selector (Maybe a)
+    nullable decoder =
+        oneOf
+            [ null Nothing
+            , map Just decoder
+            ]
+
+-}
+map : (a -> b) -> Selector a -> Selector b
+map fn (Selector query decoder) =
+    Selector query (Json.map fn decoder)
+
+
+{-| -}
+andThen : (a -> Selector b) -> Selector a -> Selector b
+andThen fn (Selector query decoder) =
+    Json.andThen
+        (\value ->
+            let
+                (Selector _ next) =
+                    fn value
+            in
+            next
+        )
+        decoder
+        |> Selector query
 
 
 {-| -}
 succeed : a -> Selector a
 succeed =
     Selector Nothing << Json.succeed
+
+
+{-| Ignore the JSON and make the decoder fail. This is handy when used with
+`oneOf` or `andThen` where you want to give a custom error message in some
+case.
+
+See the [`andThen`](#andThen) docs for an example.
+
+-}
+fail : String -> Selector a
+fail =
+    Selector Nothing << Json.fail
+
+
+{-| Sometimes you have JSON with recursive structure, like nested comments.
+You can use `lazy` to make sure your decoder unrolls lazily.
+
+    type alias Comment =
+        { message : String
+        , responses : Responses
+        }
+
+    type Responses
+        = Responses (List Comment)
+
+    comment : Selector Comment
+    comment =
+        succeed Comment
+            |> field "message" [] string
+            |> field "responses" (map Responses (list (lazy (\_ -> comment))))
+
+If we had said `list comment` instead, we would start expanding the value
+infinitely. What is a `comment`? It is a decoder for objects where the
+`responses` field contains comments. What is a `comment` though? Etc.
+
+By using `list (lazy (\_ -> comment))` we make sure the decoder only expands
+to be as deep as the JSON we are given. You can read more about recursive data
+structures [here].
+
+[here]: https://github.com/elm-lang/elm-compiler/blob/master/hints/recursive-alias.md
+
+-}
+lazy : (() -> Selector a) -> Selector a
+lazy thunk =
+    thunk ()
+
+
+{-| Do not do anything with a JSON value, just bring it into Elm as a `Value`.
+This can be useful if you have particularly crazy data that you would like to
+deal with later. Or if you are going to send it out a port and do not care
+about its structure.
+-}
+value : Selector Value
+value =
+    Selector Nothing Json.value
 
 
 {-| Decode a `null` value into some Elm value.

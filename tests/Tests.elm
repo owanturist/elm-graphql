@@ -1160,6 +1160,74 @@ selectorOneOfSheet =
         ]
 
 
+selectorMapSheet : Test
+selectorMapSheet =
+    let
+        fieldSelector =
+            Selector.succeed (,)
+                |> Selector.field "foo" [] (Selector.map String.length Selector.string)
+                |> Selector.field "bar" [] (Selector.map ((+) 1) Selector.int)
+    in
+    describe "Test GraphQL.Selector.map selector"
+        [ test "Invalid source with direct selector" <|
+            \_ ->
+                """
+                    0
+                    """
+                    |> Selector.decodeString (Selector.map String.length Selector.string)
+                    |> Expect.equal (Err "Expecting a String but instead got: 0")
+        , test "Valid source with direct selector" <|
+            \_ ->
+                """
+                    "string value"
+                    """
+                    |> Selector.decodeString (Selector.map String.length Selector.string)
+                    |> Expect.equal (Ok 12)
+        , test "Invalid source with field selector" <|
+            \_ ->
+                """
+                    {
+                        "foo": false,
+                        "bar": 1
+                    }
+                    """
+                    |> Selector.decodeString fieldSelector
+                    |> Expect.equal (Err "Expecting a String at _.foo but instead got: false")
+        , test "Valid source with field selector" <|
+            \_ ->
+                """
+                    {
+                        "foo": "string value",
+                        "bar": 4
+                    }
+                    """
+                    |> Selector.decodeString fieldSelector
+                    |> Expect.equal (Ok ( 12, 5 ))
+        , test "Build graph" <|
+            \_ ->
+                Selector.render (Selector.map String.length Selector.string)
+                    |> Expect.equal Nothing
+        , test "Build field graph" <|
+            \_ ->
+                Selector.succeed (,)
+                    |> Selector.field "foo" [] (Selector.map String.length Selector.string)
+                    |> Selector.field "bar" [] (Selector.map String.length Selector.string)
+                    |> Selector.render
+                    |> Expect.equal (Just "foo bar")
+        , test "Build field nested graph" <|
+            \_ ->
+                Selector.succeed (,)
+                    |> Selector.field "foo" [] (Selector.map String.length Selector.string)
+                    |> Selector.field "bar"
+                        []
+                        (Selector.succeed identity
+                            |> Selector.field "baz" [] (Selector.map String.length Selector.string)
+                        )
+                    |> Selector.render
+                    |> Expect.equal (Just "foo bar{baz}")
+        ]
+
+
 selectorNullSheet : Test
 selectorNullSheet =
     let
