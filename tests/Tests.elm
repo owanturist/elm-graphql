@@ -281,12 +281,12 @@ selectorStringSheet =
             \_ ->
                 """
                 {
-                    "foo": 0,
+                    "foo": false,
                     "bar": "another value"
                 }
                 """
                     |> Selector.decodeString fieldSelector
-                    |> Expect.equal (Err "Expecting a String at _.foo but instead got: 0")
+                    |> Expect.equal (Err "Expecting a String at _.foo but instead got: false")
         , test "Valid source with field selector" <|
             \_ ->
                 """
@@ -327,12 +327,12 @@ selectorBoolSheet =
             \_ ->
                 """
                 {
-                    "foo": 0,
+                    "foo": "string value",
                     "bar": true
                 }
                 """
                     |> Selector.decodeString fieldSelector
-                    |> Expect.equal (Err "Expecting a Bool at _.foo but instead got: 0")
+                    |> Expect.equal (Err "Expecting a Bool at _.foo but instead got: \"string value\"")
         , test "Valid source with field selector" <|
             \_ ->
                 """
@@ -343,4 +343,50 @@ selectorBoolSheet =
                 """
                     |> Selector.decodeString fieldSelector
                     |> Expect.equal (Ok ( True, False ))
+        ]
+
+
+selectorIntSheet : Test
+selectorIntSheet =
+    let
+        fieldSelector =
+            Selector.succeed (,)
+                |> Selector.field "foo" [] Selector.int
+                |> Selector.field "bar" [] Selector.int
+    in
+    describe "Test GraphQL.Selector.int selector"
+        [ test "Invalid source with direct selector" <|
+            \_ ->
+                """
+                0.1
+                """
+                    |> Selector.decodeString Selector.int
+                    |> Expect.equal (Err "Expecting an Int but instead got: 0.1")
+        , test "Valid source with direct selector" <|
+            \_ ->
+                """
+                1
+                """
+                    |> Selector.decodeString Selector.int
+                    |> Expect.equal (Ok 1)
+        , test "Invalid source with field selector" <|
+            \_ ->
+                """
+                {
+                    "foo": "string value",
+                    "bar": 0
+                }
+                """
+                    |> Selector.decodeString fieldSelector
+                    |> Expect.equal (Err "Expecting an Int at _.foo but instead got: \"string value\"")
+        , test "Valid source with field selector" <|
+            \_ ->
+                """
+                {
+                    "foo": 2,
+                    "bar": 3
+                }
+                """
+                    |> Selector.decodeString fieldSelector
+                    |> Expect.equal (Ok ( 2, 3 ))
         ]

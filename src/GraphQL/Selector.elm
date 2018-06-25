@@ -76,7 +76,15 @@ bool =
     Selector Nothing Json.bool
 
 
-{-| -}
+{-| Decode a JSON string into an Elm `Int`.
+
+    selector : Selector ( Int, Int )
+    selector =
+        Selector.succeed (,)
+            |> Selector.field "first" [] Selector.int
+            |> Selector.field "second" [] Selector.int
+
+-}
 int : Selector Int
 int =
     Selector Nothing Json.int
