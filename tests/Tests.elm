@@ -554,3 +554,63 @@ selectorListSheet =
                     |> Selector.decodeString fieldSelector
                     |> Expect.equal (Ok ( [ True, False, False ], [ 1, 2, 0 ] ))
         ]
+
+
+selectorArraySheet : Test
+selectorArraySheet =
+    let
+        fieldSelector =
+            Selector.succeed (,)
+                |> Selector.field "foo" [] (Selector.array Selector.bool)
+                |> Selector.field "bar" [] (Selector.array Selector.int)
+    in
+    describe "Test GraphQL.Selector.array selector"
+        [ test "Invalid source with direct selector" <|
+            \_ ->
+                """
+                true
+                """
+                    |> Selector.decodeString (Selector.array Selector.string)
+                    |> Expect.equal
+                        (Err "Expecting an Array but instead got: true")
+        , test "Invalid source items with direct selector" <|
+            \_ ->
+                """
+                ["first", 0, "second"]
+                """
+                    |> Selector.decodeString (Selector.array Selector.string)
+                    |> Expect.equal
+                        (Err "Expecting a String at _[1] but instead got: 0")
+        , test "Valid source with direct selector" <|
+            \_ ->
+                """
+                ["first", "second"]
+                """
+                    |> Selector.decodeString (Selector.array Selector.string)
+                    |> Expect.equal (Ok (Array.fromList [ "first", "second" ]))
+        , test "Invalid source with field selector" <|
+            \_ ->
+                """
+                {
+                    "foo": 0,
+                    "bar": [1, 0]
+                }
+                """
+                    |> Selector.decodeString fieldSelector
+                    |> Expect.equal (Err "Expecting an Array at _.foo but instead got: 0")
+        , test "Valid source with field selector" <|
+            \_ ->
+                """
+                {
+                    "foo": [true, false, false],
+                    "bar": [1, 2, 0]
+                }
+                """
+                    |> Selector.decodeString fieldSelector
+                    |> Expect.equal
+                        (Ok
+                            ( Array.fromList [ True, False, False ]
+                            , Array.fromList [ 1, 2, 0 ]
+                            )
+                        )
+        ]

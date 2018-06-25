@@ -2,6 +2,7 @@ module GraphQL.Selector
     exposing
         ( Selector
         , aliased
+        , array
         , bool
         , decodeString
         , decodeValue
@@ -26,7 +27,7 @@ module GraphQL.Selector
 
 # Data Structures
 
-@docs nullable, list
+@docs nullable, list, array
 
 
 # Object Primitives
@@ -45,6 +46,7 @@ module GraphQL.Selector
 
 -}
 
+import Array exposing (Array)
 import GraphQL.Internal as Internal exposing (Argument)
 import Json.Decode as Json exposing (Decoder)
 
@@ -133,6 +135,17 @@ nullable (Selector query decoder) =
 list : Selector a -> Selector (List a)
 list (Selector query decoder) =
     Selector query (Json.list decoder)
+
+
+{-| Decode a JSON array into an Elm `Array`.
+
+    decodeString (array int) "[1,2,3]"       == Ok (Array.fromList [1,2,3])
+    decodeString (array bool) "[true,false]" == Ok (Array.fromList [True,False])
+
+-}
+array : Selector a -> Selector (Array a)
+array (Selector query decoder) =
+    Selector query (Json.array decoder)
 
 
 selector : Maybe String -> String -> List ( String, Argument ) -> Selector a -> Selector (a -> b) -> Selector b
