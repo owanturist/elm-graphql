@@ -3,6 +3,8 @@ module GraphQL.Selector
         ( Selector
         , aliased
         , bool
+        , decodeString
+        , decodeValue
         , field
         , float
         , int
@@ -27,7 +29,7 @@ module GraphQL.Selector
 
 # Run Selectors
 
-@docs render
+@docs render, decodeString, decodeValue
 
 
 # Fancy Decoding
@@ -46,7 +48,15 @@ type Selector a
     = Selector (Maybe String) (Decoder a)
 
 
-{-| -}
+{-| Decode a JSON string into an Elm String.
+
+    selector : Selector ( String, String )
+    selector =
+        Selector.succeed (,)
+            |> Selector.field "first" [] Selector.string
+            |> Selector.field "second" [] Selector.string
+
+-}
 string : Selector String
 string =
     Selector Nothing Json.string
@@ -91,14 +101,14 @@ selector alias name arguments (Selector query1 decoder) (Selector query2 next) =
                 ( Nothing, Nothing ) ->
                     field ++ args
 
-                ( Nothing, Just query2 ) ->
-                    query2 ++ " " ++ field ++ args
+                ( Nothing, Just prev ) ->
+                    prev ++ " " ++ field ++ args
 
-                ( Just query1, Nothing ) ->
-                    field ++ args ++ Internal.wrap "{" "}" query1
+                ( Just child, Nothing ) ->
+                    field ++ args ++ Internal.wrap "{" "}" child
 
-                ( Just query1, Just query2 ) ->
-                    query2 ++ " " ++ field ++ args ++ Internal.wrap "{" "}" query1
+                ( Just child, Just prev ) ->
+                    prev ++ " " ++ field ++ args ++ Internal.wrap "{" "}" child
     in
     Json.map2 (|>) decoder next
         |> Json.field (Maybe.withDefault name alias)
@@ -121,6 +131,18 @@ aliased =
 render : Selector a -> Maybe String
 render (Selector query _) =
     query
+
+
+{-| -}
+decodeString : Selector a -> String -> Result String a
+decodeString (Selector _ decoder) str =
+    Json.decodeString decoder str
+
+
+{-| -}
+decodeValue : Selector a -> Json.Value -> Result String a
+decodeValue (Selector _ decoder) val =
+    Json.decodeValue decoder val
 
 
 {-| -}

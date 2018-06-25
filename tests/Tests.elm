@@ -252,3 +252,46 @@ selectorStructureSheet =
                     |> Selector.render
                     |> Expect.equal (Just "bar:bar_zero(str:\"zero\",int:0) foo:foo_zero(str:\"zero\",int:0){bar1:bar_first(str:\"first\",int:1) foo1:foo_first(str:\"first\",int:1){bar2:bar_second(str:\"second\",int:2) foo2:foo_second(str:\"second\",int:2) baz2:baz_second(str:\"second\",int:2)} baz1:baz_first(str:\"first\",int:1)} baz:baz_zero(str:\"zero\",int:0)")
         ]
+
+
+selectorStringSheet : Test
+selectorStringSheet =
+    let
+        fieldSelector =
+            Selector.succeed identity
+                |> Selector.field "foo" [] Selector.string
+    in
+    describe "Test GraphQL.Selector.string selector"
+        [ test "Invalid source with direct selector" <|
+            \_ ->
+                """
+                0
+                """
+                    |> Selector.decodeString Selector.string
+                    |> Expect.equal (Err "Expecting a String but instead got: 0")
+        , test "Valid source with direct selector" <|
+            \_ ->
+                """
+                "string value"
+                """
+                    |> Selector.decodeString Selector.string
+                    |> Expect.equal (Ok "string value")
+        , test "Invalid source with field selector" <|
+            \_ ->
+                """
+                {
+                    "foo": 0
+                }
+                """
+                    |> Selector.decodeString fieldSelector
+                    |> Expect.equal (Err "Expecting a String at _.foo but instead got: 0")
+        , test "Valid source with field selector" <|
+            \_ ->
+                """
+                {
+                    "foo": "string value"
+                }
+                """
+                    |> Selector.decodeString fieldSelector
+                    |> Expect.equal (Ok "string value")
+        ]
