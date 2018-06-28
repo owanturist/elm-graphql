@@ -20,6 +20,7 @@ module GraphQL.Selector
         , maybe
         , null
         , nullable
+        , on
         , oneOf
         , render
         , string
@@ -59,7 +60,7 @@ module GraphQL.Selector
 
 # Fancy Decoding
 
-@docs map, andThen, succeed, fail, value, null
+@docs map, andThen, succeed, fail, value, null, on
 
 -}
 
@@ -234,6 +235,42 @@ field =
 aliased : String -> String -> List ( String, Argument ) -> Selector a -> Selector (a -> b) -> Selector b
 aliased =
     selector << Just
+
+
+{-| -}
+on : List ( String, Selector a ) -> Selector (a -> b) -> Selector b
+on selectors (Selector parentQuery next) =
+    let
+        ( queries, decoders ) =
+            List.foldr
+                (\( entity, Selector query decoder ) (( queries, decoders ) as acc) ->
+                    case query of
+                        Nothing ->
+                            acc
+
+                        Just query ->
+                            ( ("...on " ++ entity ++ Internal.wrap "{" "}" query) :: queries
+                            , decoder :: decoders
+                            )
+                )
+                ( [], [] )
+                selectors
+
+        query =
+            case ( queries, parentQuery ) of
+                ( [], Nothing ) ->
+                    Nothing
+
+                ( [], Just prev ) ->
+                    Just prev
+
+                ( children, Nothing ) ->
+                    Just (String.join " " children)
+
+                ( children, Just prev ) ->
+                    Just (prev ++ " " ++ String.join " " children)
+    in
+    Selector query (Json.map2 (|>) (Json.oneOf decoders) next)
 
 
 {-| Decode a JSON array, requiring a particular index.

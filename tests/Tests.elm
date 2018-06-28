@@ -1517,3 +1517,362 @@ selectorNullSheet =
                     |> Selector.render
                     |> Expect.equal (Just "foo bar{baz}")
         ]
+
+
+type SearchResult
+    = User String
+    | Counter Int
+
+
+selectorOnSheet : Test
+selectorOnSheet =
+    let
+        singleToEmptySelector =
+            Selector.succeed identity
+                |> Selector.on []
+
+        singleToSingleNonFieldSelector =
+            Selector.succeed identity
+                |> Selector.on
+                    [ ( "User", Selector.string )
+                    ]
+
+        singleToMultipeNonFieldSelector =
+            Selector.succeed identity
+                |> Selector.on
+                    [ ( "User", Selector.map User Selector.string )
+                    , ( "Counter", Selector.map Counter Selector.int )
+                    ]
+
+        multipleEmptySelector =
+            Selector.succeed (,)
+                |> Selector.on []
+                |> Selector.field "id" [] Selector.string
+
+        multipleToSingleNonFieldSelector =
+            Selector.succeed (,)
+                |> Selector.on
+                    [ ( "User", Selector.string )
+                    ]
+                |> Selector.field "id" [] Selector.string
+
+        multipleToMultipeNonFieldSelector =
+            Selector.succeed (,)
+                |> Selector.on
+                    [ ( "User", Selector.map User Selector.string )
+                    , ( "Counter", Selector.map Counter Selector.int )
+                    ]
+                |> Selector.field "id" [] Selector.string
+
+        singleToSingleFieldSelector =
+            Selector.succeed identity
+                |> Selector.on
+                    [ ( "User"
+                      , Selector.succeed identity
+                            |> Selector.field "username" [] Selector.string
+                      )
+                    ]
+
+        singleToMultipeFieldSelector =
+            Selector.succeed identity
+                |> Selector.on
+                    [ ( "User"
+                      , Selector.succeed User
+                            |> Selector.field "username" [] Selector.string
+                      )
+                    , ( "Counter"
+                      , Selector.succeed Counter
+                            |> Selector.field "count" [] Selector.int
+                      )
+                    ]
+
+        multipleToSingleFieldSelector =
+            Selector.succeed (,)
+                |> Selector.field "id" [] Selector.string
+                |> Selector.on
+                    [ ( "User"
+                      , Selector.succeed identity
+                            |> Selector.field "username" [] Selector.string
+                      )
+                    ]
+
+        multipleToMultipeFieldSelector =
+            Selector.succeed (,)
+                |> Selector.on
+                    [ ( "User"
+                      , Selector.succeed User
+                            |> Selector.field "username" [] Selector.string
+                      )
+                    , ( "Counter"
+                      , Selector.succeed Counter
+                            |> Selector.field "count" [] Selector.int
+                      )
+                    ]
+                |> Selector.field "id" [] Selector.string
+
+        nestedSelector =
+            Selector.succeed (,)
+                |> Selector.field "search" [] Selector.string
+                |> Selector.field "results" [] (Selector.list multipleToMultipeFieldSelector)
+    in
+    describe "Test GraphQL.Selector.on single shape with empty `on`"
+        [ test "Valid source with single to empty selector" <|
+            \_ ->
+                """
+                {}
+                """
+                    |> Selector.decodeString singleToEmptySelector
+                    |> Expect.equal (Err "I ran into the following problems:\n\n")
+        , test "Build graph with single to empty selector" <|
+            \_ ->
+                Selector.render singleToEmptySelector
+                    |> Expect.equal Nothing
+        , test "Valid source with single to single non field selector" <|
+            \_ ->
+                """
+                {}
+                """
+                    |> Selector.decodeString singleToSingleNonFieldSelector
+                    |> Expect.equal (Err "I ran into the following problems:\n\n")
+        , test "Build graph with single to single non field selector" <|
+            \_ ->
+                Selector.render singleToSingleNonFieldSelector
+                    |> Expect.equal Nothing
+        , test "Valid source with single to multiple non field selector" <|
+            \_ ->
+                """
+                {}
+                """
+                    |> Selector.decodeString singleToMultipeNonFieldSelector
+                    |> Expect.equal (Err "I ran into the following problems:\n\n")
+        , test "Build graph with single to multiple non field selector" <|
+            \_ ->
+                Selector.render singleToMultipeNonFieldSelector
+                    |> Expect.equal Nothing
+        , test "Invalid source with multiple to empty selector" <|
+            \_ ->
+                """
+                {}
+                """
+                    |> Selector.decodeString multipleEmptySelector
+                    |> Expect.equal (Err "Expecting an object with a field named `id` but instead got: {}")
+        , test "Valid source with multiple to empty selector" <|
+            \_ ->
+                """
+                {
+                    "id": "identificator"
+                }
+                """
+                    |> Selector.decodeString multipleEmptySelector
+                    |> Expect.equal (Err "I ran into the following problems:\n\n")
+        , test "Build graph with multiple to empty selector" <|
+            \_ ->
+                Selector.render multipleEmptySelector
+                    |> Expect.equal (Just "id")
+        , test "Invalid source with multiple to single non field selector" <|
+            \_ ->
+                """
+                {}
+                """
+                    |> Selector.decodeString multipleToSingleNonFieldSelector
+                    |> Expect.equal (Err "Expecting an object with a field named `id` but instead got: {}")
+        , test "Valid source with multiple to single non field selector" <|
+            \_ ->
+                """
+                {
+                    "id": "identificator"
+                }
+                """
+                    |> Selector.decodeString multipleToSingleNonFieldSelector
+                    |> Expect.equal (Err "I ran into the following problems:\n\n")
+        , test "Build graph with multiple to single non field selector" <|
+            \_ ->
+                Selector.render multipleToSingleNonFieldSelector
+                    |> Expect.equal (Just "id")
+        , test "Invalid source with multiple to multiple non field selector" <|
+            \_ ->
+                """
+                {}
+                """
+                    |> Selector.decodeString multipleToMultipeNonFieldSelector
+                    |> Expect.equal (Err "Expecting an object with a field named `id` but instead got: {}")
+        , test "Valid source with multiple to multiple non field selector" <|
+            \_ ->
+                """
+                {
+                    "id": "identificator"
+                }
+                """
+                    |> Selector.decodeString multipleToMultipeNonFieldSelector
+                    |> Expect.equal (Err "I ran into the following problems:\n\n")
+        , test "Build graph with multiple to multiple non field selector" <|
+            \_ ->
+                Selector.render multipleToMultipeNonFieldSelector
+                    |> Expect.equal (Just "id")
+        , test "Invalid source with single to single field selector" <|
+            \_ ->
+                """
+                {}
+                """
+                    |> Selector.decodeString singleToSingleFieldSelector
+                    |> Expect.equal
+                        ("I ran into the following problems:\n"
+                            ++ "\nExpecting an object with a field named `username` but instead got: {}"
+                            |> Err
+                        )
+        , test "Valid source with single to single field selector" <|
+            \_ ->
+                """
+                {
+                    "username": "Bob"
+                }
+                """
+                    |> Selector.decodeString singleToSingleFieldSelector
+                    |> Expect.equal (Ok "Bob")
+        , test "Build graph with single to single field selector" <|
+            \_ ->
+                Selector.render singleToSingleFieldSelector
+                    |> Expect.equal (Just "...on User{username}")
+        , test "Invalid source with single to multiple field selector" <|
+            \_ ->
+                """
+                {}
+                """
+                    |> Selector.decodeString singleToMultipeFieldSelector
+                    |> Expect.equal
+                        ("I ran into the following problems:\n"
+                            ++ "\nExpecting an object with a field named `username` but instead got: {}"
+                            ++ "\nExpecting an object with a field named `count` but instead got: {}"
+                            |> Err
+                        )
+        , test "Valid User source with single to multiple field selector" <|
+            \_ ->
+                """
+                {
+                    "username": "Bob"
+                }
+                """
+                    |> Selector.decodeString singleToMultipeFieldSelector
+                    |> Expect.equal (Ok (User "Bob"))
+        , test "Valid Counter source with single to multiple field selector" <|
+            \_ ->
+                """
+                {
+                    "count": 5
+                }
+                """
+                    |> Selector.decodeString singleToMultipeFieldSelector
+                    |> Expect.equal (Ok (Counter 5))
+        , test "Build graph with single to multiple field selector" <|
+            \_ ->
+                Selector.render singleToMultipeFieldSelector
+                    |> Expect.equal (Just "...on User{username} ...on Counter{count}")
+        , test "Invalid source with multiple to single field selector" <|
+            \_ ->
+                """
+                {}
+                """
+                    |> Selector.decodeString multipleToSingleFieldSelector
+                    |> Expect.equal
+                        ("I ran into the following problems:\n"
+                            ++ "\nExpecting an object with a field named `username` but instead got: {}"
+                            |> Err
+                        )
+        , test "Valid User source with multiple to single field selector" <|
+            \_ ->
+                """
+                {
+                    "id": "identificator",
+                    "username": "Bob"
+                }
+                """
+                    |> Selector.decodeString multipleToSingleFieldSelector
+                    |> Expect.equal (Ok ( "identificator", "Bob" ))
+        , test "Build graph with multiple to single field selector" <|
+            \_ ->
+                Selector.render multipleToSingleFieldSelector
+                    |> Expect.equal (Just "id ...on User{username}")
+        , test "Invalid source with multiple to multiple field selector" <|
+            \_ ->
+                """
+                {}
+                """
+                    |> Selector.decodeString multipleToMultipeFieldSelector
+                    |> Expect.equal (Err "Expecting an object with a field named `id` but instead got: {}")
+        , test "Valid User source with multiple to multiple field selector" <|
+            \_ ->
+                """
+                {
+                    "id": "identificator",
+                    "username": "Bob"
+                }
+                """
+                    |> Selector.decodeString multipleToMultipeFieldSelector
+                    |> Expect.equal (Ok ( User "Bob", "identificator" ))
+        , test "Valid Counter source with multiple to multiple field selector" <|
+            \_ ->
+                """
+                {
+                    "id": "identificator",
+                    "count": 5
+                }
+                """
+                    |> Selector.decodeString multipleToMultipeFieldSelector
+                    |> Expect.equal (Ok ( Counter 5, "identificator" ))
+        , test "Build graph with multiple to multiple field selector" <|
+            \_ ->
+                Selector.render multipleToMultipeFieldSelector
+                    |> Expect.equal (Just "...on User{username} ...on Counter{count} id")
+        , test "Invalid source with nested selector" <|
+            \_ ->
+                """
+                {}
+                """
+                    |> Selector.decodeString nestedSelector
+                    |> Expect.equal (Err "Expecting an object with a field named `results` but instead got: {}")
+        , test "Valid empty source with nested selector" <|
+            \_ ->
+                """
+                {
+                    "search": "foo",
+                    "results": []
+                }
+                """
+                    |> Selector.decodeString nestedSelector
+                    |> Expect.equal (Ok ( "foo", [] ))
+        , test "Valid mixed source with nested selector" <|
+            \_ ->
+                """
+                {
+                    "search": "bar",
+                    "results": [
+                        {
+                            "id": "identificator1",
+                            "username": "Bob"
+                        },
+                        {
+                            "id": "identificator2",
+                            "count": 5
+                        },
+                        {
+                            "id": "identificator3",
+                            "username": "Tom"
+                        }
+                    ]
+                }
+                """
+                    |> Selector.decodeString nestedSelector
+                    |> Expect.equal
+                        (Ok
+                            ( "bar"
+                            , [ ( User "Bob", "identificator1" )
+                              , ( Counter 5, "identificator2" )
+                              , ( User "Tom", "identificator3" )
+                              ]
+                            )
+                        )
+        , test "Build graph with nested selector" <|
+            \_ ->
+                Selector.render nestedSelector
+                    |> Expect.equal (Just "search results{...on User{username} ...on Counter{count} id}")
+        ]
