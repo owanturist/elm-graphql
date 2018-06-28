@@ -1228,6 +1228,102 @@ selectorMapSheet =
         ]
 
 
+selectorSucceedSheet : Test
+selectorSucceedSheet =
+    let
+        fieldSelector =
+            Selector.succeed (,)
+                |> Selector.field "foo" [] (Selector.succeed 1)
+                |> Selector.field "bar" [] (Selector.succeed True)
+    in
+    describe "Test GraphQL.Selector.succeed selector"
+        [ test "Direct selector" <|
+            \_ ->
+                """
+                null
+                """
+                    |> Selector.decodeString (Selector.succeed "str")
+                    |> Expect.equal (Ok "str")
+        , test "Field selector" <|
+            \_ ->
+                """
+                {
+                    "foo": null,
+                    "bar": null
+                }
+                """
+                    |> Selector.decodeString fieldSelector
+                    |> Expect.equal (Ok ( 1, True ))
+        , test "Build graph" <|
+            \_ ->
+                Selector.render (Selector.succeed 3.14)
+                    |> Expect.equal Nothing
+        , test "Build field graph" <|
+            \_ ->
+                Selector.render fieldSelector
+                    |> Expect.equal (Just "foo bar")
+        , test "Build field nested graph" <|
+            \_ ->
+                Selector.succeed (,)
+                    |> Selector.field "foo" [] (Selector.succeed Nothing)
+                    |> Selector.field "bar"
+                        []
+                        (Selector.succeed identity
+                            |> Selector.field "baz" [] (Selector.succeed Nothing)
+                        )
+                    |> Selector.render
+                    |> Expect.equal (Just "foo bar{baz}")
+        ]
+
+
+selectorFailSheet : Test
+selectorFailSheet =
+    let
+        fieldSelector =
+            Selector.succeed (,)
+                |> Selector.field "foo" [] (Selector.fail "message foo")
+                |> Selector.field "bar" [] (Selector.fail "message bar")
+    in
+    describe "Test GraphQL.Selector.fail selector"
+        [ test "Direct selector" <|
+            \_ ->
+                """
+                null
+                """
+                    |> Selector.decodeString (Selector.fail "message")
+                    |> Expect.equal (Err "I ran into a `fail` decoder: message")
+        , test "Field selector" <|
+            \_ ->
+                """
+                {
+                    "foo": null,
+                    "bar": null
+                }
+                """
+                    |> Selector.decodeString fieldSelector
+                    |> Expect.equal (Err "I ran into a `fail` decoder at _.bar: message bar")
+        , test "Build graph" <|
+            \_ ->
+                Selector.render (Selector.fail "message")
+                    |> Expect.equal Nothing
+        , test "Build field graph" <|
+            \_ ->
+                Selector.render fieldSelector
+                    |> Expect.equal (Just "foo bar")
+        , test "Build field nested graph" <|
+            \_ ->
+                Selector.succeed (,)
+                    |> Selector.field "foo" [] (Selector.fail "message foo")
+                    |> Selector.field "bar"
+                        []
+                        (Selector.succeed identity
+                            |> Selector.field "baz" [] (Selector.fail "message bar.baz")
+                        )
+                    |> Selector.render
+                    |> Expect.equal (Just "foo bar{baz}")
+        ]
+
+
 selectorNullSheet : Test
 selectorNullSheet =
     let

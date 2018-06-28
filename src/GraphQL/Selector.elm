@@ -15,7 +15,6 @@ module GraphQL.Selector
         , index
         , int
         , keyValuePairs
-        , lazy
         , list
         , map
         , maybe
@@ -60,7 +59,7 @@ module GraphQL.Selector
 
 # Fancy Decoding
 
-@docs map, andThen, succeed, fail, lazy, value, null
+@docs map, andThen, succeed, fail, value, null
 
 -}
 
@@ -323,19 +322,29 @@ type alias Value =
     Json.Value
 
 
-{-| -}
+{-| Render GraphQL representation from a Selector.
+-}
 render : Selector a -> Maybe String
 render (Selector query _) =
     query
 
 
-{-| -}
+{-| Parse the given string into a JSON value and then run the Decoder on it.
+This will fail if the string is not well-formed JSON or if the Decoder fails for some reason.
+
+    decodeString int "4"     == Ok 4
+    decodeString int "1 + 2" == Err ...
+
+-}
 decodeString : Selector a -> String -> Result String a
 decodeString (Selector _ decoder) str =
     Json.decodeString decoder str
 
 
-{-| -}
+{-| Run a Decoder on some JSON Value.
+You can send these JSON values through ports,
+so that is probably the main time you would use this function.
+-}
 decodeValue : Selector a -> Value -> Result String a
 decodeValue (Selector _ decoder) val =
     Json.decodeValue decoder val
@@ -362,7 +371,9 @@ map fn (Selector query decoder) =
     Selector query (Json.map fn decoder)
 
 
-{-| -}
+{-| Create decoders that depend on previous results.
+Doesn't create depended Selector.
+-}
 andThen : (a -> Selector b) -> Selector a -> Selector b
 andThen fn (Selector query decoder) =
     Json.andThen
@@ -377,7 +388,15 @@ andThen fn (Selector query decoder) =
         |> Selector query
 
 
-{-| -}
+{-| Ignore the JSON and produce a certain Elm value.
+
+    decodeString (succeed 42) "true"    == Ok 42
+    decodeString (succeed 42) "[1,2,3]" == Ok 42
+    decodeString (succeed 42) "hello"   == Err ... -- this is not a valid JSON string
+
+    This is handy when used with `oneOf` or `andThen`.
+
+-}
 succeed : a -> Selector a
 succeed =
     Selector Nothing << Json.succeed
@@ -393,39 +412,6 @@ See the [`andThen`](#andThen) docs for an example.
 fail : String -> Selector a
 fail =
     Selector Nothing << Json.fail
-
-
-{-| Sometimes you have JSON with recursive structure, like nested comments.
-You can use `lazy` to make sure your decoder unrolls lazily.
-
-    type alias Comment =
-        { message : String
-        , responses : Responses
-        }
-
-    type Responses
-        = Responses (List Comment)
-
-    comment : Selector Comment
-    comment =
-        succeed Comment
-            |> field "message" [] string
-            |> field "responses" (map Responses (list (lazy (\_ -> comment))))
-
-If we had said `list comment` instead, we would start expanding the value
-infinitely. What is a `comment`? It is a decoder for objects where the
-`responses` field contains comments. What is a `comment` though? Etc.
-
-By using `list (lazy (\_ -> comment))` we make sure the decoder only expands
-to be as deep as the JSON we are given. You can read more about recursive data
-structures [here].
-
-[here]: https://github.com/elm-lang/elm-compiler/blob/master/hints/recursive-alias.md
-
--}
-lazy : (() -> Selector a) -> Selector a
-lazy thunk =
-    thunk ()
 
 
 {-| Do not do anything with a JSON value, just bring it into Elm as a `Value`.
