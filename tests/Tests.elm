@@ -6,7 +6,7 @@ import Expect exposing (Expectation)
 import Fuzz
 import GraphQL.Argument as Argument
 import GraphQL.Internal as Internal
-import GraphQL.Selector as Selector
+import GraphQL.Selector as Selector exposing (Selector)
 import Test exposing (Test, describe, fuzz, test)
 
 
@@ -1172,35 +1172,35 @@ selectorMapSheet =
         [ test "Invalid source with direct selector" <|
             \_ ->
                 """
-                    0
-                    """
+                0
+                """
                     |> Selector.decodeString (Selector.map String.length Selector.string)
                     |> Expect.equal (Err "Expecting a String but instead got: 0")
         , test "Valid source with direct selector" <|
             \_ ->
                 """
-                    "string value"
-                    """
+                "string value"
+                """
                     |> Selector.decodeString (Selector.map String.length Selector.string)
                     |> Expect.equal (Ok 12)
         , test "Invalid source with field selector" <|
             \_ ->
                 """
-                    {
-                        "foo": false,
-                        "bar": 1
-                    }
-                    """
+                {
+                    "foo": false,
+                    "bar": 1
+                }
+                """
                     |> Selector.decodeString fieldSelector
                     |> Expect.equal (Err "Expecting a String at _.foo but instead got: false")
         , test "Valid source with field selector" <|
             \_ ->
                 """
-                    {
-                        "foo": "string value",
-                        "bar": 4
-                    }
-                    """
+                {
+                    "foo": "string value",
+                    "bar": 4
+                }
+                """
                     |> Selector.decodeString fieldSelector
                     |> Expect.equal (Ok ( 12, 5 ))
         , test "Build graph" <|
@@ -1225,6 +1225,114 @@ selectorMapSheet =
                         )
                     |> Selector.render
                     |> Expect.equal (Just "foo bar{baz}")
+        ]
+
+
+selectorAndThenSheet : Test
+selectorAndThenSheet =
+    let
+        onlyPositive : Selector number -> Selector number
+        onlyPositive =
+            Selector.andThen
+                (\x ->
+                    if x < 0 then
+                        Selector.fail ("Expecting a positive number but instead got: " ++ toString x)
+                    else
+                        Selector.succeed x
+                )
+
+        fieldSelector =
+            Selector.succeed (,)
+                |> Selector.field "bar"
+                    []
+                    (Selector.andThen
+                        (\bar ->
+                            case bar of
+                                0 ->
+                                    Selector.succeed (,)
+                                        |> Selector.field "first" [] Selector.bool
+                                        |> Selector.field "second" [] Selector.string
+
+                                1 ->
+                                    Selector.succeed ( False, "empty" )
+
+                                _ ->
+                                    Selector.fail ("Invalid bar: " ++ toString bar)
+                        )
+                        Selector.int
+                    )
+                |> Selector.field "foo" [] (onlyPositive Selector.float)
+    in
+    describe "Test GraphQL.Selector.andThen selector"
+        [ test "Invalid source with direct selector" <|
+            \_ ->
+                """
+                -1
+                """
+                    |> Selector.decodeString (onlyPositive Selector.int)
+                    |> Expect.equal (Err "I ran into a `fail` decoder: Expecting a positive number but instead got: -1")
+        , test "Valid source with direct selector" <|
+            \_ ->
+                """
+                1
+                """
+                    |> Selector.decodeString (onlyPositive Selector.int)
+                    |> Expect.equal (Ok 1)
+        , test "Invalid source with field selector" <|
+            \_ ->
+                """
+                {
+                    "foo": 3.14,
+                    "bar": false
+                }
+                """
+                    |> Selector.decodeString fieldSelector
+                    |> Expect.equal (Err "Expecting an Int at _.bar but instead got: false")
+        , test "Valid source and invalid andThen with field selector" <|
+            \_ ->
+                """
+                {
+                    "foo": 3.14,
+                    "bar": 2
+                }
+                """
+                    |> Selector.decodeString fieldSelector
+                    |> Expect.equal (Err "I ran into a `fail` decoder at _.bar: Invalid bar: 2")
+        , test "Valid source and valid hardcoded andThen with field selector" <|
+            \_ ->
+                """
+                {
+                    "foo": 3.14,
+                    "bar": 1
+                }
+                """
+                    |> Selector.decodeString fieldSelector
+                    |> Expect.equal (Ok ( ( False, "empty" ), 3.14 ))
+        , test "Invalid source and valid andThen with field selector" <|
+            \_ ->
+                """
+                {
+                    "foo": 3.14,
+                    "bar": 0
+                }
+                """
+                    |> Selector.decodeString fieldSelector
+                    |> Expect.equal (Err "Expecting an object with a field named `second` at _.bar but instead got: 0")
+        , test "Build graph" <|
+            \_ ->
+                Selector.render (onlyPositive Selector.int)
+                    |> Expect.equal Nothing
+        , test "Build field graph" <|
+            \_ ->
+                Selector.render fieldSelector
+                    |> Expect.equal (Just "bar foo")
+        , test "Build field nested graph" <|
+            \_ ->
+                Selector.succeed (,)
+                    |> Selector.field "first" [] (Selector.map String.length Selector.string)
+                    |> Selector.field "second" [] fieldSelector
+                    |> Selector.render
+                    |> Expect.equal (Just "first second{bar foo}")
         ]
 
 
