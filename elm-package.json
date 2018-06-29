@@ -1,8 +1,8 @@
 {
     "version": "1.0.0",
-    "summary": "GraphQL builder for Elm lang",
-    "repository": "https://github.com/user/project.git",
-    "license": "BSD3-3-Clause",
+    "summary": "Build GraphQL schemes and decoder together",
+    "repository": "https://github.com/owanturist/elm-graphql.git",
+    "license": "MIT",
     "source-directories": [
         "src"
     ],

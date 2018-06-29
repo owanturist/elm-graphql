@@ -1,13 +1,12 @@
 {
   "name": "elm-graphql",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Build GraphQL schemes and decoder together",
   "scripts": {
     "test": "elm-test"
   },
-  "author": "",
-  "license": "BSD3-3-Clause",
+  "author": "Anton Ovechkin <owanturist@gmail.com>",
+  "license": "MIT",
   "devDependencies": {
     "elm-test": "^0.18.12"
   }
