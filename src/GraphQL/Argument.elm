@@ -1,11 +1,24 @@
-module GraphQL.Argument exposing (Argument, array, bool, float, int, list, null, object, string)
+module GraphQL.Argument
+    exposing
+        ( Argument
+        , Value
+        , array
+        , bool
+        , float
+        , int
+        , list
+        , null
+        , object
+        , string
+        , toValue
+        )
 
 {-| Define GraphQL inputs in Elm
 
 
 # Primitives
 
-@docs Argument
+@docs Argument, Value
 @docs string, int, float, bool, null
 
 
@@ -18,10 +31,22 @@ module GraphQL.Argument exposing (Argument, array, bool, float, int, list, null,
 
 @docs object
 
+
+# Conversions
+
+@docs toValue
+
 -}
 
 import Array exposing (Array)
 import GraphQL.Internal as Internal exposing (wrap)
+import Json.Encode as Json
+
+
+{-| Represents a JavaScript value.
+-}
+type alias Value =
+    Json.Value
 
 
 {-| Represents a GraphQL input values.
@@ -47,7 +72,7 @@ Equals to:
 -}
 string : String -> Argument
 string =
-    Internal.Argument << wrap "\"" "\""
+    Internal.String
 
 
 {-| Pass int argument into a graph.
@@ -67,7 +92,7 @@ Equals to:
 -}
 int : Int -> Argument
 int =
-    Internal.Argument << toString
+    Internal.Int
 
 
 {-| Pass float argument into a graph.
@@ -87,7 +112,7 @@ Equals to:
 -}
 float : Float -> Argument
 float =
-    Internal.Argument << toString
+    Internal.Float
 
 
 {-| Pass bool argument into a graph.
@@ -107,9 +132,7 @@ Equals to:
 -}
 bool : Bool -> Argument
 bool =
-    toString
-        >> String.toLower
-        >> Internal.Argument
+    Internal.Bool
 
 
 {-| Pass null argument into a graph.
@@ -129,7 +152,7 @@ Equals to:
 -}
 null : Argument
 null =
-    Internal.Argument "null"
+    Internal.Null
 
 
 {-| Pass object of arguments into a graph.
@@ -163,10 +186,7 @@ Equals to:
 -}
 object : List ( String, Argument ) -> Argument
 object =
-    Internal.renderArguments
-        >> Maybe.map (wrap "{" "}")
-        >> Maybe.withDefault ""
-        >> Internal.Argument
+    Internal.Object
 
 
 {-| Pass list of arguments into a graph.
@@ -202,10 +222,7 @@ Equals to:
 -}
 list : List Argument -> Argument
 list =
-    List.map Internal.argumentToString
-        >> String.join ","
-        >> wrap "[" "]"
-        >> Internal.Argument
+    Internal.List
 
 
 {-| Pass array of arguments into a graph.
@@ -245,4 +262,40 @@ Equals to:
 -}
 array : Array Argument -> Argument
 array =
-    list << Array.toList
+    Internal.Array
+
+
+{-| Convert `Argument` into `Value`.
+
+    toValue (string "hello")      == Json.Encode.string "hello"
+    toValue (bool True)           == Json.Encode.bool True
+    toValue null                  == Json.Encode.null
+    toValue [ int 1, float 3.14 ] == Json.Encode.list [ Json.Encode.int 1, Json.Encode.float 3.14 ]
+
+-}
+toValue : Argument -> Value
+toValue argument =
+    case argument of
+        Internal.String string ->
+            Json.string string
+
+        Internal.Int int ->
+            Json.int int
+
+        Internal.Float float ->
+            Json.float float
+
+        Internal.Bool bool ->
+            Json.bool bool
+
+        Internal.Null ->
+            Json.null
+
+        Internal.List listOfArguments ->
+            Json.list (List.map toValue listOfArguments)
+
+        Internal.Array arrayOfArguments ->
+            Json.array (Array.map toValue arrayOfArguments)
+
+        Internal.Object objectConfiguration ->
+            Json.object (List.map (Tuple.mapSecond toValue) objectConfiguration)

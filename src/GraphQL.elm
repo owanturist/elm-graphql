@@ -7,9 +7,10 @@ module GraphQL
         , mutation
         , post
         , query
-        , select
+        , render
         , send
         , subscription
+        , toDecoder
         , toHttpRequest
         , toTask
         , withBearerToken
@@ -29,7 +30,7 @@ Building of HTTP request has been based on [`elm-http-builder`](http://package.e
 
 # Build a GraphQL
 
-@docs GraphQL, query, mutation, subscription, select
+@docs GraphQL, query, mutation, subscription, render, toDecoder
 
 
 # Build a Request
@@ -151,18 +152,20 @@ subscription =
     GraphQL "subscription"
 
 
-{-| Render GraphQL representation and build a Decoder from a GraphQL.
+{-| Render GraphQL representation from a GraphQL.
 -}
-select : GraphQL a -> ( Maybe String, Decoder a )
-select (GraphQL operation name selector) =
-    case Selector.select selector of
-        ( Nothing, decoder ) ->
-            ( Nothing, decoder )
+render : GraphQL a -> Maybe String
+render (GraphQL operation name selector) =
+    Maybe.map
+        ((++) (operation ++ " " ++ name) << Internal.wrap "{" "}")
+        (Selector.render selector)
 
-        ( Just selector, decoder ) ->
-            ( Just (operation ++ " " ++ name ++ Internal.wrap "{" "}" selector)
-            , decoder
-            )
+
+{-| Build a Decoder from a GraphQL.
+-}
+toDecoder : GraphQL a -> Decoder a
+toDecoder (GraphQL _ _ selector) =
+    Selector.toDecoder selector
 
 
 {-| A type for chaining request configuration.
@@ -183,8 +186,8 @@ type alias Request a =
 requestBuilder : Bool -> String -> GraphQL a -> Request a
 requestBuilder isGetMethod url graphql =
     let
-        ( query, decoder ) =
-            select graphql
+        query =
+            render graphql
 
         ( methodStr, queryParams, body ) =
             if isGetMethod then
@@ -207,7 +210,7 @@ requestBuilder isGetMethod url graphql =
     , url = url
     , headers = []
     , body = body
-    , expect = Http.expectJson (Decode.field "data" decoder)
+    , expect = Http.expectJson (Decode.field "data" (toDecoder graphql))
     , timeout = Nothing
     , withCredentials = False
     , queryParams = queryParams
