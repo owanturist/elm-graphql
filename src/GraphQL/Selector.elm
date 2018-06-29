@@ -22,7 +22,7 @@ module GraphQL.Selector
         , nullable
         , on
         , oneOf
-        , render
+        , select
         , string
         , succeed
         , value
@@ -55,7 +55,7 @@ module GraphQL.Selector
 # Run Selectors
 
 @docs Value
-@docs render, decodeString, decodeValue
+@docs select, decodeString, decodeValue
 
 
 # Fancy Decoding
@@ -359,11 +359,11 @@ type alias Value =
     Json.Value
 
 
-{-| Render GraphQL representation from a Selector.
+{-| Render GraphQL representation and build a Decoder from a Selector.
 -}
-render : Selector a -> Maybe String
-render (Selector query _) =
-    query
+select : Selector a -> ( Maybe String, Decoder a )
+select (Selector query decoder) =
+    ( query, decoder )
 
 
 {-| Parse the given string into a JSON value and then run the Decoder on it.

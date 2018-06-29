@@ -93,13 +93,15 @@ selectorStructureSheet =
         [ test "Empty graph" <|
             \_ ->
                 Selector.string
-                    |> Selector.render
+                    |> Selector.select
+                    |> Tuple.first
                     |> Expect.equal Nothing
         , test "Single graph" <|
             \_ ->
                 Selector.succeed identity
                     |> Selector.field "bar" [] Selector.string
-                    |> Selector.render
+                    |> Selector.select
+                    |> Tuple.first
                     |> Expect.equal (Just "bar")
         , test "Multiple graph" <|
             \_ ->
@@ -107,7 +109,8 @@ selectorStructureSheet =
                     |> Selector.field "bar" [] Selector.string
                     |> Selector.field "foo" [] Selector.string
                     |> Selector.field "baz" [] Selector.string
-                    |> Selector.render
+                    |> Selector.select
+                    |> Tuple.first
                     |> Expect.equal (Just "bar foo baz")
         , test "Nested graph" <|
             \_ ->
@@ -121,7 +124,8 @@ selectorStructureSheet =
                                     |> Selector.field "baz" [] Selector.string
                                 )
                         )
-                    |> Selector.render
+                    |> Selector.select
+                    |> Tuple.first
                     |> Expect.equal (Just "bar{foo{baz}}")
         , test "Nested multiple graph" <|
             \_ ->
@@ -141,7 +145,8 @@ selectorStructureSheet =
                             |> Selector.field "baz1" [] Selector.string
                         )
                     |> Selector.field "baz" [] Selector.string
-                    |> Selector.render
+                    |> Selector.select
+                    |> Tuple.first
                     |> Expect.equal (Just "bar foo{bar1 foo1{bar2 foo2 baz2} baz1} baz")
         , test "Argumented graph" <|
             \_ ->
@@ -150,7 +155,8 @@ selectorStructureSheet =
                         [ ( "foo", Argument.string "baz" )
                         ]
                         Selector.string
-                    |> Selector.render
+                    |> Selector.select
+                    |> Tuple.first
                     |> Expect.equal (Just """bar(foo:"baz")""")
         , test "Nested argumented graph" <|
             \_ ->
@@ -164,13 +170,15 @@ selectorStructureSheet =
                                 ]
                                 Selector.string
                         )
-                    |> Selector.render
+                    |> Selector.select
+                    |> Tuple.first
                     |> Expect.equal (Just """bar(foo:"baz"){bar1(foo1:"baz1")}""")
         , test "Aliased graph" <|
             \_ ->
                 Selector.succeed identity
                     |> Selector.aliased "foo" "bar" [] Selector.string
-                    |> Selector.render
+                    |> Selector.select
+                    |> Tuple.first
                     |> Expect.equal (Just "foo:bar")
         , test "Aliased argumented graph" <|
             \_ ->
@@ -180,7 +188,8 @@ selectorStructureSheet =
                         [ ( "baz", Argument.int 0 )
                         ]
                         Selector.string
-                    |> Selector.render
+                    |> Selector.select
+                    |> Tuple.first
                     |> Expect.equal (Just "foo:bar(baz:0)")
         , test "Full graph" <|
             \_ ->
@@ -250,7 +259,8 @@ selectorStructureSheet =
                         , ( "int", Argument.int 0 )
                         ]
                         Selector.string
-                    |> Selector.render
+                    |> Selector.select
+                    |> Tuple.first
                     |> Expect.equal (Just """bar:bar_zero(str:"zero",int:0) foo:foo_zero(str:"zero",int:0){bar1:bar_first(str:"first",int:1) foo1:foo_first(str:"first",int:1){bar2:bar_second(str:"second",int:2) foo2:foo_second(str:"second",int:2) baz2:baz_second(str:"second",int:2)} baz1:baz_first(str:"first",int:1)} baz:baz_zero(str:"zero",int:0)""")
         ]
 
@@ -300,14 +310,16 @@ selectorStringSheet =
                     |> Expect.equal (Ok ( "string value", "another value" ))
         , test "Build graph" <|
             \_ ->
-                Selector.render Selector.string
+                Selector.select Selector.string
+                    |> Tuple.first
                     |> Expect.equal Nothing
         , test "Build field graph" <|
             \_ ->
                 Selector.succeed (,)
                     |> Selector.field "foo" [] Selector.string
                     |> Selector.field "bar" [] Selector.string
-                    |> Selector.render
+                    |> Selector.select
+                    |> Tuple.first
                     |> Expect.equal (Just "foo bar")
         ]
 
@@ -357,14 +369,16 @@ selectorBoolSheet =
                     |> Expect.equal (Ok ( True, False ))
         , test "Build graph" <|
             \_ ->
-                Selector.render Selector.bool
+                Selector.select Selector.bool
+                    |> Tuple.first
                     |> Expect.equal Nothing
         , test "Build field graph" <|
             \_ ->
                 Selector.succeed (,)
                     |> Selector.field "foo" [] Selector.bool
                     |> Selector.field "bar" [] Selector.bool
-                    |> Selector.render
+                    |> Selector.select
+                    |> Tuple.first
                     |> Expect.equal (Just "foo bar")
         ]
 
@@ -414,14 +428,16 @@ selectorIntSheet =
                     |> Expect.equal (Ok ( 2, 3 ))
         , test "Build graph" <|
             \_ ->
-                Selector.render Selector.int
+                Selector.select Selector.int
+                    |> Tuple.first
                     |> Expect.equal Nothing
         , test "Build field graph" <|
             \_ ->
                 Selector.succeed (,)
                     |> Selector.field "foo" [] Selector.int
                     |> Selector.field "bar" [] Selector.int
-                    |> Selector.render
+                    |> Selector.select
+                    |> Tuple.first
                     |> Expect.equal (Just "foo bar")
         ]
 
@@ -471,14 +487,16 @@ selectorFloatSheet =
                     |> Expect.equal (Ok ( 0, 3.1 ))
         , test "Build graph" <|
             \_ ->
-                Selector.render Selector.float
+                Selector.select Selector.float
+                    |> Tuple.first
                     |> Expect.equal Nothing
         , test "Build field graph" <|
             \_ ->
                 Selector.succeed (,)
                     |> Selector.field "foo" [] Selector.float
                     |> Selector.field "bar" [] Selector.float
-                    |> Selector.render
+                    |> Selector.select
+                    |> Tuple.first
                     |> Expect.equal (Just "foo bar")
         ]
 
@@ -545,14 +563,16 @@ selectorNullableSheet =
                     |> Expect.equal (Ok ( Nothing, Just "string value" ))
         , test "Build graph" <|
             \_ ->
-                Selector.render (Selector.nullable Selector.string)
+                Selector.select (Selector.nullable Selector.string)
+                    |> Tuple.first
                     |> Expect.equal Nothing
         , test "Build field graph" <|
             \_ ->
                 Selector.succeed (,)
                     |> Selector.field "foo" [] (Selector.nullable Selector.string)
                     |> Selector.field "bar" [] (Selector.nullable Selector.string)
-                    |> Selector.render
+                    |> Selector.select
+                    |> Tuple.first
                     |> Expect.equal (Just "foo bar")
         , test "Build field nested graph" <|
             \_ ->
@@ -564,7 +584,8 @@ selectorNullableSheet =
                             |> Selector.field "baz" [] Selector.string
                             |> Selector.nullable
                         )
-                    |> Selector.render
+                    |> Selector.select
+                    |> Tuple.first
                     |> Expect.equal (Just "foo bar{baz}")
         ]
 
@@ -621,14 +642,16 @@ selectorListSheet =
                     |> Expect.equal (Ok ( [ True, False, False ], [ 1, 2, 0 ] ))
         , test "Build graph" <|
             \_ ->
-                Selector.render (Selector.list Selector.string)
+                Selector.select (Selector.list Selector.string)
+                    |> Tuple.first
                     |> Expect.equal Nothing
         , test "Build field graph" <|
             \_ ->
                 Selector.succeed (,)
                     |> Selector.field "foo" [] (Selector.list Selector.string)
                     |> Selector.field "bar" [] (Selector.list Selector.string)
-                    |> Selector.render
+                    |> Selector.select
+                    |> Tuple.first
                     |> Expect.equal (Just "foo bar")
         , test "Build field nested graph" <|
             \_ ->
@@ -640,7 +663,8 @@ selectorListSheet =
                             |> Selector.field "baz" [] Selector.string
                             |> Selector.list
                         )
-                    |> Selector.render
+                    |> Selector.select
+                    |> Tuple.first
                     |> Expect.equal (Just "foo bar{baz}")
         ]
 
@@ -702,14 +726,16 @@ selectorArraySheet =
                         )
         , test "Build graph" <|
             \_ ->
-                Selector.render (Selector.array Selector.string)
+                Selector.select (Selector.array Selector.string)
+                    |> Tuple.first
                     |> Expect.equal Nothing
         , test "Build field graph" <|
             \_ ->
                 Selector.succeed (,)
                     |> Selector.field "foo" [] (Selector.array Selector.string)
                     |> Selector.field "bar" [] (Selector.array Selector.string)
-                    |> Selector.render
+                    |> Selector.select
+                    |> Tuple.first
                     |> Expect.equal (Just "foo bar")
         , test "Build field nested graph" <|
             \_ ->
@@ -721,7 +747,8 @@ selectorArraySheet =
                             |> Selector.field "baz" [] Selector.string
                             |> Selector.array
                         )
-                    |> Selector.render
+                    |> Selector.select
+                    |> Tuple.first
                     |> Expect.equal (Just "foo bar{baz}")
         ]
 
@@ -811,14 +838,16 @@ selectorDictSheet =
                         )
         , test "Build graph" <|
             \_ ->
-                Selector.render (Selector.dict Selector.string)
+                Selector.select (Selector.dict Selector.string)
+                    |> Tuple.first
                     |> Expect.equal Nothing
         , test "Build field graph" <|
             \_ ->
                 Selector.succeed (,)
                     |> Selector.field "foo" [] (Selector.dict Selector.string)
                     |> Selector.field "bar" [] (Selector.dict Selector.string)
-                    |> Selector.render
+                    |> Selector.select
+                    |> Tuple.first
                     |> Expect.equal (Just "foo bar")
         , test "Build field nested graph" <|
             \_ ->
@@ -830,7 +859,8 @@ selectorDictSheet =
                             |> Selector.field "baz" [] Selector.string
                             |> Selector.dict
                         )
-                    |> Selector.render
+                    |> Selector.select
+                    |> Tuple.first
                     |> Expect.equal (Just "foo bar{baz}")
         ]
 
@@ -917,14 +947,16 @@ selectorKeyValuePairsSheet =
                         )
         , test "Build graph" <|
             \_ ->
-                Selector.render (Selector.keyValuePairs Selector.string)
+                Selector.select (Selector.keyValuePairs Selector.string)
+                    |> Tuple.first
                     |> Expect.equal Nothing
         , test "Build field graph" <|
             \_ ->
                 Selector.succeed (,)
                     |> Selector.field "foo" [] (Selector.keyValuePairs Selector.string)
                     |> Selector.field "bar" [] (Selector.keyValuePairs Selector.string)
-                    |> Selector.render
+                    |> Selector.select
+                    |> Tuple.first
                     |> Expect.equal (Just "foo bar")
         , test "Build field nested graph" <|
             \_ ->
@@ -936,7 +968,8 @@ selectorKeyValuePairsSheet =
                             |> Selector.field "baz" [] Selector.string
                             |> Selector.keyValuePairs
                         )
-                    |> Selector.render
+                    |> Selector.select
+                    |> Tuple.first
                     |> Expect.equal (Just "foo bar{baz}")
         ]
 
@@ -997,14 +1030,16 @@ selectorIndexSheet =
                     |> Expect.equal (Ok ( 0, "string value" ))
         , test "Build graph" <|
             \_ ->
-                Selector.render (Selector.index 0 Selector.string)
+                Selector.select (Selector.index 0 Selector.string)
+                    |> Tuple.first
                     |> Expect.equal Nothing
         , test "Build field graph" <|
             \_ ->
                 Selector.succeed (,)
                     |> Selector.field "foo" [] (Selector.index 0 Selector.string)
                     |> Selector.field "bar" [] (Selector.index 0 Selector.string)
-                    |> Selector.render
+                    |> Selector.select
+                    |> Tuple.first
                     |> Expect.equal (Just "foo bar")
         , test "Build field nested graph" <|
             \_ ->
@@ -1016,7 +1051,8 @@ selectorIndexSheet =
                             |> Selector.field "baz" [] Selector.string
                             |> Selector.index 0
                         )
-                    |> Selector.render
+                    |> Selector.select
+                    |> Tuple.first
                     |> Expect.equal (Just "foo bar{baz}")
         ]
 
@@ -1060,14 +1096,16 @@ selectorMaybeSheet =
                     |> Expect.equal (Err """Expecting an object with a field named `height` but instead got: {"name":"tom","age":42,"status":null}""")
         , test "Build graph" <|
             \_ ->
-                Selector.render (Selector.maybe Selector.string)
+                Selector.select (Selector.maybe Selector.string)
+                    |> Tuple.first
                     |> Expect.equal Nothing
         , test "Build field graph" <|
             \_ ->
                 Selector.succeed (,)
                     |> Selector.field "foo" [] (Selector.maybe Selector.string)
                     |> Selector.field "bar" [] (Selector.maybe Selector.string)
-                    |> Selector.render
+                    |> Selector.select
+                    |> Tuple.first
                     |> Expect.equal (Just "foo bar")
         , test "Build field nested graph" <|
             \_ ->
@@ -1079,7 +1117,8 @@ selectorMaybeSheet =
                             |> Selector.field "baz" [] Selector.string
                             |> Selector.maybe
                         )
-                    |> Selector.render
+                    |> Selector.select
+                    |> Tuple.first
                     |> Expect.equal (Just "foo bar{baz}")
         ]
 
@@ -1133,14 +1172,16 @@ selectorOneOfSheet =
                     |> Expect.equal (Ok [ 1, 0, 2 ])
         , test "Build graph" <|
             \_ ->
-                Selector.render (Selector.oneOf [ Selector.string, Selector.null "default" ])
+                Selector.select (Selector.oneOf [ Selector.string, Selector.null "default" ])
+                    |> Tuple.first
                     |> Expect.equal Nothing
         , test "Build field graph" <|
             \_ ->
                 Selector.succeed (,)
                     |> Selector.field "foo" [] (Selector.oneOf [ Selector.string, Selector.null "default" ])
                     |> Selector.field "bar" [] (Selector.oneOf [ Selector.string, Selector.null "default" ])
-                    |> Selector.render
+                    |> Selector.select
+                    |> Tuple.first
                     |> Expect.equal (Just "foo bar")
         , test "Build field nested graph" <|
             \_ ->
@@ -1155,7 +1196,8 @@ selectorOneOfSheet =
                                 |> Selector.field "boo" [] Selector.string
                             ]
                         )
-                    |> Selector.render
+                    |> Selector.select
+                    |> Tuple.first
                     |> Expect.equal (Just "foo bar{baz boo}")
         ]
 
@@ -1205,14 +1247,16 @@ selectorMapSheet =
                     |> Expect.equal (Ok ( 12, 5 ))
         , test "Build graph" <|
             \_ ->
-                Selector.render (Selector.map String.length Selector.string)
+                Selector.select (Selector.map String.length Selector.string)
+                    |> Tuple.first
                     |> Expect.equal Nothing
         , test "Build field graph" <|
             \_ ->
                 Selector.succeed (,)
                     |> Selector.field "foo" [] (Selector.map String.length Selector.string)
                     |> Selector.field "bar" [] (Selector.map String.length Selector.string)
-                    |> Selector.render
+                    |> Selector.select
+                    |> Tuple.first
                     |> Expect.equal (Just "foo bar")
         , test "Build field nested graph" <|
             \_ ->
@@ -1223,7 +1267,8 @@ selectorMapSheet =
                         (Selector.succeed identity
                             |> Selector.field "baz" [] (Selector.map String.length Selector.string)
                         )
-                    |> Selector.render
+                    |> Selector.select
+                    |> Tuple.first
                     |> Expect.equal (Just "foo bar{baz}")
         ]
 
@@ -1320,18 +1365,21 @@ selectorAndThenSheet =
                     |> Expect.equal (Err "Expecting an object with a field named `second` at _.bar but instead got: 0")
         , test "Build graph" <|
             \_ ->
-                Selector.render (onlyPositive Selector.int)
+                Selector.select (onlyPositive Selector.int)
+                    |> Tuple.first
                     |> Expect.equal Nothing
         , test "Build field graph" <|
             \_ ->
-                Selector.render fieldSelector
+                Selector.select fieldSelector
+                    |> Tuple.first
                     |> Expect.equal (Just "bar foo")
         , test "Build field nested graph" <|
             \_ ->
                 Selector.succeed (,)
                     |> Selector.field "first" [] (Selector.map String.length Selector.string)
                     |> Selector.field "second" [] fieldSelector
-                    |> Selector.render
+                    |> Selector.select
+                    |> Tuple.first
                     |> Expect.equal (Just "first second{bar foo}")
         ]
 
@@ -1364,11 +1412,13 @@ selectorSucceedSheet =
                     |> Expect.equal (Ok ( 1, True ))
         , test "Build graph" <|
             \_ ->
-                Selector.render (Selector.succeed 3.14)
+                Selector.select (Selector.succeed 3.14)
+                    |> Tuple.first
                     |> Expect.equal Nothing
         , test "Build field graph" <|
             \_ ->
-                Selector.render fieldSelector
+                Selector.select fieldSelector
+                    |> Tuple.first
                     |> Expect.equal (Just "foo bar")
         , test "Build field nested graph" <|
             \_ ->
@@ -1379,7 +1429,8 @@ selectorSucceedSheet =
                         (Selector.succeed identity
                             |> Selector.field "baz" [] (Selector.succeed Nothing)
                         )
-                    |> Selector.render
+                    |> Selector.select
+                    |> Tuple.first
                     |> Expect.equal (Just "foo bar{baz}")
         ]
 
@@ -1412,11 +1463,13 @@ selectorFailSheet =
                     |> Expect.equal (Err "I ran into a `fail` decoder at _.bar: message bar")
         , test "Build graph" <|
             \_ ->
-                Selector.render (Selector.fail "message")
+                Selector.select (Selector.fail "message")
+                    |> Tuple.first
                     |> Expect.equal Nothing
         , test "Build field graph" <|
             \_ ->
-                Selector.render fieldSelector
+                Selector.select fieldSelector
+                    |> Tuple.first
                     |> Expect.equal (Just "foo bar")
         , test "Build field nested graph" <|
             \_ ->
@@ -1427,7 +1480,8 @@ selectorFailSheet =
                         (Selector.succeed identity
                             |> Selector.field "baz" [] (Selector.fail "message bar.baz")
                         )
-                    |> Selector.render
+                    |> Selector.select
+                    |> Tuple.first
                     |> Expect.equal (Just "foo bar{baz}")
         ]
 
@@ -1495,14 +1549,16 @@ selectorNullSheet =
                         (Ok ( False, 1 ))
         , test "Build graph" <|
             \_ ->
-                Selector.render (Selector.keyValuePairs Selector.string)
+                Selector.select (Selector.keyValuePairs Selector.string)
+                    |> Tuple.first
                     |> Expect.equal Nothing
         , test "Build field graph" <|
             \_ ->
                 Selector.succeed (,)
                     |> Selector.field "foo" [] (Selector.keyValuePairs Selector.string)
                     |> Selector.field "bar" [] (Selector.keyValuePairs Selector.string)
-                    |> Selector.render
+                    |> Selector.select
+                    |> Tuple.first
                     |> Expect.equal (Just "foo bar")
         , test "Build field nested graph" <|
             \_ ->
@@ -1514,7 +1570,8 @@ selectorNullSheet =
                             |> Selector.field "baz" [] Selector.string
                             |> Selector.keyValuePairs
                         )
-                    |> Selector.render
+                    |> Selector.select
+                    |> Tuple.first
                     |> Expect.equal (Just "foo bar{baz}")
         ]
 
@@ -1625,7 +1682,8 @@ selectorOnSheet =
                     |> Expect.equal (Err "I ran into the following problems:\n\n")
         , test "Build graph with single to empty selector" <|
             \_ ->
-                Selector.render singleToEmptySelector
+                Selector.select singleToEmptySelector
+                    |> Tuple.first
                     |> Expect.equal Nothing
         , test "Valid source with single to single non field selector" <|
             \_ ->
@@ -1636,7 +1694,8 @@ selectorOnSheet =
                     |> Expect.equal (Err "I ran into the following problems:\n\n")
         , test "Build graph with single to single non field selector" <|
             \_ ->
-                Selector.render singleToSingleNonFieldSelector
+                Selector.select singleToSingleNonFieldSelector
+                    |> Tuple.first
                     |> Expect.equal Nothing
         , test "Valid source with single to multiple non field selector" <|
             \_ ->
@@ -1647,7 +1706,8 @@ selectorOnSheet =
                     |> Expect.equal (Err "I ran into the following problems:\n\n")
         , test "Build graph with single to multiple non field selector" <|
             \_ ->
-                Selector.render singleToMultipeNonFieldSelector
+                Selector.select singleToMultipeNonFieldSelector
+                    |> Tuple.first
                     |> Expect.equal Nothing
         , test "Invalid source with multiple to empty selector" <|
             \_ ->
@@ -1667,7 +1727,8 @@ selectorOnSheet =
                     |> Expect.equal (Err "I ran into the following problems:\n\n")
         , test "Build graph with multiple to empty selector" <|
             \_ ->
-                Selector.render multipleEmptySelector
+                Selector.select multipleEmptySelector
+                    |> Tuple.first
                     |> Expect.equal (Just "id")
         , test "Invalid source with multiple to single non field selector" <|
             \_ ->
@@ -1687,7 +1748,8 @@ selectorOnSheet =
                     |> Expect.equal (Err "I ran into the following problems:\n\n")
         , test "Build graph with multiple to single non field selector" <|
             \_ ->
-                Selector.render multipleToSingleNonFieldSelector
+                Selector.select multipleToSingleNonFieldSelector
+                    |> Tuple.first
                     |> Expect.equal (Just "id")
         , test "Invalid source with multiple to multiple non field selector" <|
             \_ ->
@@ -1707,7 +1769,8 @@ selectorOnSheet =
                     |> Expect.equal (Err "I ran into the following problems:\n\n")
         , test "Build graph with multiple to multiple non field selector" <|
             \_ ->
-                Selector.render multipleToMultipeNonFieldSelector
+                Selector.select multipleToMultipeNonFieldSelector
+                    |> Tuple.first
                     |> Expect.equal (Just "id")
         , test "Invalid source with single to single field selector" <|
             \_ ->
@@ -1731,7 +1794,8 @@ selectorOnSheet =
                     |> Expect.equal (Ok "Bob")
         , test "Build graph with single to single field selector" <|
             \_ ->
-                Selector.render singleToSingleFieldSelector
+                Selector.select singleToSingleFieldSelector
+                    |> Tuple.first
                     |> Expect.equal (Just "...on User{username}")
         , test "Invalid source with single to multiple field selector" <|
             \_ ->
@@ -1765,7 +1829,8 @@ selectorOnSheet =
                     |> Expect.equal (Ok (Counter 5))
         , test "Build graph with single to multiple field selector" <|
             \_ ->
-                Selector.render singleToMultipeFieldSelector
+                Selector.select singleToMultipeFieldSelector
+                    |> Tuple.first
                     |> Expect.equal (Just "...on User{username} ...on Counter{count}")
         , test "Invalid source with multiple to single field selector" <|
             \_ ->
@@ -1790,7 +1855,8 @@ selectorOnSheet =
                     |> Expect.equal (Ok ( "identificator", "Bob" ))
         , test "Build graph with multiple to single field selector" <|
             \_ ->
-                Selector.render multipleToSingleFieldSelector
+                Selector.select multipleToSingleFieldSelector
+                    |> Tuple.first
                     |> Expect.equal (Just "id ...on User{username}")
         , test "Invalid source with multiple to multiple field selector" <|
             \_ ->
@@ -1821,7 +1887,8 @@ selectorOnSheet =
                     |> Expect.equal (Ok ( Counter 5, "identificator" ))
         , test "Build graph with multiple to multiple field selector" <|
             \_ ->
-                Selector.render multipleToMultipeFieldSelector
+                Selector.select multipleToMultipeFieldSelector
+                    |> Tuple.first
                     |> Expect.equal (Just "...on User{username} ...on Counter{count} id")
         , test "Invalid source with nested selector" <|
             \_ ->
@@ -1873,6 +1940,7 @@ selectorOnSheet =
                         )
         , test "Build graph with nested selector" <|
             \_ ->
-                Selector.render nestedSelector
+                Selector.select nestedSelector
+                    |> Tuple.first
                     |> Expect.equal (Just "search results{...on User{username} ...on Counter{count} id}")
         ]
