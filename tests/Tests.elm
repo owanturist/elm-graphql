@@ -91,7 +91,12 @@ argumentSheet =
 argumentToValueSheet : Test
 argumentToValueSheet =
     describe "Test GraphQL.Argument.toValue function"
-        [ fuzz Fuzz.string "GraphQL.Argument.string" <|
+        [ test "fail test" <|
+            \_ ->
+                Argument.string "one"
+                    |> Argument.toValue
+                    |> Expect.notEqual (Encode.string "another")
+        , fuzz Fuzz.string "GraphQL.Argument.string" <|
             \value ->
                 Argument.string value
                     |> Argument.toValue
