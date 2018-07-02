@@ -23,6 +23,7 @@ module GraphQL.Selector
         , on
         , oneOf
         , render
+        , singleton
         , string
         , succeed
         , toDecoder
@@ -61,7 +62,7 @@ module GraphQL.Selector
 
 # Fancy Decoding
 
-@docs map, andThen, succeed, fail, value, null, on
+@docs map, andThen, succeed, fail, value, null, on, singleton
 
 -}
 
@@ -482,3 +483,13 @@ So if you ever see a `null`, this will return whatever value you specified.
 null : a -> Selector a
 null =
     Selector Nothing << Json.null
+
+
+{-| An alias for `succeed identity`.
+
+    field "id" [] string singleton
+
+-}
+singleton : Selector (a -> a)
+singleton =
+    succeed identity
