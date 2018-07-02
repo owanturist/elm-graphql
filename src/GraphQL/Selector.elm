@@ -331,8 +331,8 @@ then a few older ones that you still support. You could use `andThen` to be
 even more particular if you wanted.
 
 -}
-oneOf : List (Selector a) -> Selector a
-oneOf selectors =
+oneOf : List (Selector a) -> Selector (a -> b) -> Selector b
+oneOf selectors (Selector parentQuery next) =
     let
         ( queries, decoders ) =
             List.foldr
@@ -345,14 +345,20 @@ oneOf selectors =
                 selectors
 
         query =
-            case List.filterMap identity queries of
-                [] ->
+            case ( List.filterMap identity queries, parentQuery ) of
+                ( [], Nothing ) ->
                     Nothing
 
-                many ->
+                ( [], Just prev ) ->
+                    Just prev
+
+                ( many, Nothing ) ->
                     Just (String.join " " many)
+
+                ( many, Just prev ) ->
+                    Just (prev ++ " " ++ String.join " " many)
     in
-    Selector query (Json.oneOf decoders)
+    Selector query (Json.map2 (|>) (Json.oneOf decoders) next)
 
 
 {-| A JSON value.
