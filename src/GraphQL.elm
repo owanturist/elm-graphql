@@ -86,6 +86,15 @@ It collects a GraphQL which is equal to:
     }
     """
 
+and decoder is equal to:
+
+    Decode.field "me"
+        (Decode.map3
+            (Decode.field "id" Decode.string)
+            (Decode.field "firstName" Decode.string)
+            (Decode.field "lastName" Decode.string)
+        )
+
 -}
 query : String -> Selector a -> GraphQL a
 query =
@@ -117,6 +126,15 @@ It collects a GraphQL which is equal to:
     }
     """
 
+and decoder is equal to:
+
+    Decode.field "updateMe"
+        (Decode.map3
+            (Decode.field "id" Decode.string)
+            (Decode.field "firstName" Decode.string)
+            (Decode.field "lastName" Decode.string)
+        )
+
 -}
 mutation : String -> Selector a -> GraphQL a
 mutation =
@@ -146,6 +164,15 @@ It collects a GraphQL which is equal to:
         }
     }
     """
+
+and decoder is equal to:
+
+    Decode.field "onUpdateMe"
+        (Decode.map3
+            (Decode.field "id" Decode.string)
+            (Decode.field "firstName" Decode.string)
+            (Decode.field "lastName" Decode.string)
+        )
 
 -}
 subscription : String -> Selector a -> GraphQL a
