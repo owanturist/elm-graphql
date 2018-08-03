@@ -16,6 +16,7 @@ module GraphQL
         , withBearerToken
         , withCacheBuster
         , withCredentials
+        , withDataDecoder
         , withHeader
         , withHeaders
         , withQueryParam
@@ -38,7 +39,7 @@ Building of HTTP request has been based on [`elm-http-builder`](http://package.e
 @docs Request, get, post
 
 @docs withHeader, withHeaders, withBearerToken, withQueryParam
-@docs withQueryParams, withTimeout, withCredentials, withCacheBuster
+@docs withQueryParams, withTimeout, withCredentials, withCacheBuster, withDataDecoder
 
 
 # Make a Request
@@ -305,7 +306,7 @@ withBearerToken value builder =
         |> query "InitialData"
         |> get "https://example.com/graphql"
         |> withQueryParams "hello" "world"
-        |> withQueryParams baz" "qux"
+        |> withQueryParams "baz" "qux"
 
     -- sends a request to https://example.com/graphql?hello=world&baz=qux
 
@@ -385,6 +386,21 @@ query param will be given a value with the current timestamp.
 withCacheBuster : String -> Request a -> Request a
 withCacheBuster paramName builder =
     { builder | cacheBuster = Just paramName }
+
+
+{-| Set a decoder of data container. By default it set as `Decode.field "data"`.
+
+    GraphQL.Selector.succeed (,)
+        |> GraphQL.Selector.field "me" [] userSelector
+        |> GraphQL.Selector.field "articles" [] (GraphQL.Selector.list articleSelector)
+        |> query "InitialData"
+        |> get "https://example.com/graphql"
+        |> withDataDecoder (Decode.at [ "my", "custom", "data", "path" ])
+
+-}
+withDataDecoder : (Decoder a -> Decoder a) -> Request a -> Request a
+withDataDecoder dataDecoder builder =
+    { builder | dataDecoder = dataDecoder }
 
 
 {-| A Request can fail in a couple ways:
