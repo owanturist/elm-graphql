@@ -175,7 +175,8 @@ type alias Request a =
     , url : String
     , headers : List Http.Header
     , body : Http.Body
-    , expect : Http.Expect a
+    , decoder : Decoder a
+    , dataDecoder : Decoder a -> Decoder a
     , timeout : Maybe Time
     , withCredentials : Bool
     , queryParams : List ( String, String )
@@ -210,7 +211,8 @@ requestBuilder isGetMethod url graphql =
     , url = url
     , headers = []
     , body = body
-    , expect = Http.expectJson (Decode.field "data" (toDecoder graphql))
+    , decoder = toDecoder graphql
+    , dataDecoder = Decode.field "data"
     , timeout = Nothing
     , withCredentials = False
     , queryParams = queryParams
@@ -425,7 +427,7 @@ toHttpRequest builder =
         , url = fullUrl
         , headers = builder.headers
         , body = builder.body
-        , expect = builder.expect
+        , expect = Http.expectJson (builder.dataDecoder builder.decoder)
         , timeout = builder.timeout
         , withCredentials = builder.withCredentials
         }
