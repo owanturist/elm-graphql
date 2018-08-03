@@ -16,6 +16,7 @@ module GraphQL
         , withBearerToken
         , withCacheBuster
         , withCredentials
+        , withDataDecoder
         , withHeader
         , withHeaders
         , withQueryParam
@@ -38,7 +39,7 @@ Building of HTTP request has been based on [`elm-http-builder`](http://package.e
 @docs Request, get, post
 
 @docs withHeader, withHeaders, withBearerToken, withQueryParam
-@docs withQueryParams, withTimeout, withCredentials, withCacheBuster
+@docs withQueryParams, withTimeout, withCredentials, withCacheBuster, withDataDecoder
 
 
 # Make a Request
@@ -175,7 +176,8 @@ type alias Request a =
     , url : String
     , headers : List Http.Header
     , body : Http.Body
-    , expect : Http.Expect a
+    , decoder : Decoder a
+    , dataDecoder : Decoder a -> Decoder a
     , timeout : Maybe Time
     , withCredentials : Bool
     , queryParams : List ( String, String )
@@ -210,7 +212,8 @@ requestBuilder isGetMethod url graphql =
     , url = url
     , headers = []
     , body = body
-    , expect = Http.expectJson (Decode.field "data" (toDecoder graphql))
+    , decoder = toDecoder graphql
+    , dataDecoder = Decode.field "data"
     , timeout = Nothing
     , withCredentials = False
     , queryParams = queryParams
@@ -303,7 +306,7 @@ withBearerToken value builder =
         |> query "InitialData"
         |> get "https://example.com/graphql"
         |> withQueryParams "hello" "world"
-        |> withQueryParams baz" "qux"
+        |> withQueryParams "baz" "qux"
 
     -- sends a request to https://example.com/graphql?hello=world&baz=qux
 
@@ -385,6 +388,21 @@ withCacheBuster paramName builder =
     { builder | cacheBuster = Just paramName }
 
 
+{-| Set a decoder of data container. By default it set as `Decode.field "data"`.
+
+    GraphQL.Selector.succeed (,)
+        |> GraphQL.Selector.field "me" [] userSelector
+        |> GraphQL.Selector.field "articles" [] (GraphQL.Selector.list articleSelector)
+        |> query "InitialData"
+        |> get "https://example.com/graphql"
+        |> withDataDecoder (Decode.at [ "my", "custom", "data", "path" ])
+
+-}
+withDataDecoder : (Decoder a -> Decoder a) -> Request a -> Request a
+withDataDecoder dataDecoder builder =
+    { builder | dataDecoder = dataDecoder }
+
+
 {-| A Request can fail in a couple ways:
 
   - BadUrl means you did not provide a valid URL.
@@ -425,7 +443,7 @@ toHttpRequest builder =
         , url = fullUrl
         , headers = builder.headers
         , body = builder.body
-        , expect = builder.expect
+        , expect = Http.expectJson (builder.dataDecoder builder.decoder)
         , timeout = builder.timeout
         , withCredentials = builder.withCredentials
         }
