@@ -7,6 +7,7 @@ module GraphQL.Internal
         )
 
 import Array exposing (Array)
+import Json.Encode as Json exposing (encode)
 
 
 wrap : String -> String -> String -> String
@@ -29,19 +30,19 @@ argumentToString : Argument -> String
 argumentToString argument =
     case argument of
         String string ->
-            wrap "\"" "\"" string
+            encode 0 (Json.string string)
 
         Int int ->
-            toString int
+            encode 0 (Json.int int)
 
         Float float ->
-            toString float
+            encode 0 (Json.float float)
 
         Bool bool ->
-            String.toLower (toString bool)
+            encode 0 (Json.bool bool)
 
         Null ->
-            "null"
+            encode 0 Json.null
 
         List listOfArguments ->
             renderListOfArguments listOfArguments

@@ -7,7 +7,7 @@ import Fuzz
 import GraphQL.Argument as Argument
 import GraphQL.Internal as Internal
 import GraphQL.Selector as Selector exposing (Selector)
-import Json.Encode as Encode
+import Json.Encode as Encode exposing (encode)
 import Test exposing (Test, describe, fuzz, test)
 
 
@@ -18,7 +18,7 @@ argumentSheet =
             \value ->
                 Argument.string value
                     |> Internal.argumentToString
-                    |> Expect.equal ("\"" ++ value ++ "\"")
+                    |> Expect.equal (encode 0 (Encode.string value))
         , fuzz Fuzz.int "GraphQL.Argument.int" <|
             \value ->
                 Argument.int value
@@ -85,6 +85,11 @@ argumentSheet =
                     )
                     |> Internal.argumentToString
                     |> Expect.equal """["str",1,3.14,[true,null]]"""
+        , test "ISSUE https://github.com/owanturist/elm-graphql/issues/1" <|
+            \_ ->
+                Argument.string "first\nsecond"
+                    |> Internal.argumentToString
+                    |> Expect.equal "\"first\\nsecond\""
         ]
 
 
