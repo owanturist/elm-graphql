@@ -86,6 +86,15 @@ It collects a GraphQL which is equal to:
     }
     """
 
+and decoder is equal to:
+
+    Decode.field "me"
+        (Decode.map3
+            (Decode.field "id" Decode.string)
+            (Decode.field "firstName" Decode.string)
+            (Decode.field "lastName" Decode.string)
+        )
+
 -}
 query : String -> Selector a -> GraphQL a
 query =
@@ -117,6 +126,15 @@ It collects a GraphQL which is equal to:
     }
     """
 
+and decoder is equal to:
+
+    Decode.field "updateMe"
+        (Decode.map3
+            (Decode.field "id" Decode.string)
+            (Decode.field "firstName" Decode.string)
+            (Decode.field "lastName" Decode.string)
+        )
+
 -}
 mutation : String -> Selector a -> GraphQL a
 mutation =
@@ -147,6 +165,15 @@ It collects a GraphQL which is equal to:
     }
     """
 
+and decoder is equal to:
+
+    Decode.field "onUpdateMe"
+        (Decode.map3
+            (Decode.field "id" Decode.string)
+            (Decode.field "firstName" Decode.string)
+            (Decode.field "lastName" Decode.string)
+        )
+
 -}
 subscription : String -> Selector a -> GraphQL a
 subscription =
@@ -171,18 +198,19 @@ toDecoder (GraphQL _ _ selector) =
 
 {-| A type for chaining request configuration.
 -}
-type alias Request a =
-    { method : String
-    , url : String
-    , headers : List Http.Header
-    , body : Http.Body
-    , decoder : Decoder a
-    , dataDecoder : Decoder a -> Decoder a
-    , timeout : Maybe Time
-    , withCredentials : Bool
-    , queryParams : List ( String, String )
-    , cacheBuster : Maybe String
-    }
+type Request a
+    = Request
+        { method : String
+        , url : String
+        , headers : List Http.Header
+        , body : Http.Body
+        , decoder : Decoder a
+        , dataDecoder : Decoder a -> Decoder a
+        , timeout : Maybe Time
+        , withCredentials : Bool
+        , queryParams : List ( String, String )
+        , cacheBuster : Maybe String
+        }
 
 
 requestBuilder : Bool -> String -> GraphQL a -> Request a
@@ -208,17 +236,18 @@ requestBuilder isGetMethod url graphql =
                     |> Http.jsonBody
                 )
     in
-    { method = methodStr
-    , url = url
-    , headers = []
-    , body = body
-    , decoder = toDecoder graphql
-    , dataDecoder = Decode.field "data"
-    , timeout = Nothing
-    , withCredentials = False
-    , queryParams = queryParams
-    , cacheBuster = Nothing
-    }
+    Request
+        { method = methodStr
+        , url = url
+        , headers = []
+        , body = body
+        , decoder = toDecoder graphql
+        , dataDecoder = Decode.field "data"
+        , timeout = Nothing
+        , withCredentials = False
+        , queryParams = queryParams
+        , cacheBuster = Nothing
+        }
 
 
 {-| Start building a GET request with a given URL.
@@ -261,8 +290,8 @@ post =
 
 -}
 withHeader : String -> String -> Request a -> Request a
-withHeader key value builder =
-    { builder | headers = Http.header key value :: builder.headers }
+withHeader key value (Request builder) =
+    Request { builder | headers = Http.header key value :: builder.headers }
 
 
 {-| Add many headers to a request.
@@ -279,8 +308,8 @@ withHeader key value builder =
 
 -}
 withHeaders : List ( String, String ) -> Request a -> Request a
-withHeaders headerPairs builder =
-    { builder | headers = List.map (uncurry Http.header) headerPairs ++ builder.headers }
+withHeaders headerPairs (Request builder) =
+    Request { builder | headers = List.map (uncurry Http.header) headerPairs ++ builder.headers }
 
 
 {-| Add a bearer token to a request.
@@ -294,8 +323,8 @@ withHeaders headerPairs builder =
 
 -}
 withBearerToken : String -> Request a -> Request a
-withBearerToken value builder =
-    { builder | headers = Http.header "Authorization" ("Bearer " ++ value) :: builder.headers }
+withBearerToken value (Request builder) =
+    Request { builder | headers = Http.header "Authorization" ("Bearer " ++ value) :: builder.headers }
 
 
 {-| Add a query param to the url for the request.
@@ -312,8 +341,8 @@ withBearerToken value builder =
 
 -}
 withQueryParam : String -> String -> Request a -> Request a
-withQueryParam key value builder =
-    { builder | queryParams = builder.queryParams ++ [ ( key, value ) ] }
+withQueryParam key value (Request builder) =
+    Request { builder | queryParams = builder.queryParams ++ [ ( key, value ) ] }
 
 
 {-| Add some query params to the url for the request.
@@ -330,8 +359,8 @@ withQueryParam key value builder =
 
 -}
 withQueryParams : List ( String, String ) -> Request a -> Request a
-withQueryParams queryParams builder =
-    { builder | queryParams = builder.queryParams ++ queryParams }
+withQueryParams queryParams (Request builder) =
+    Request { builder | queryParams = builder.queryParams ++ queryParams }
 
 
 {-| Set the `timeout` setting on the request.
@@ -345,8 +374,8 @@ withQueryParams queryParams builder =
 
 -}
 withTimeout : Time -> Request a -> Request a
-withTimeout timeout builder =
-    { builder | timeout = Just timeout }
+withTimeout timeout (Request builder) =
+    Request { builder | timeout = Just timeout }
 
 
 {-| Set the `withCredentials` flag on the request to True. Works via
@@ -361,8 +390,8 @@ withTimeout timeout builder =
 
 -}
 withCredentials : Bool -> Request a -> Request a
-withCredentials with builder =
-    { builder | withCredentials = with }
+withCredentials with (Request builder) =
+    Request { builder | withCredentials = with }
 
 
 {-| Send the request with a Time based cache buster added to the URL.
@@ -384,8 +413,8 @@ query param will be given a value with the current timestamp.
 
 -}
 withCacheBuster : String -> Request a -> Request a
-withCacheBuster paramName builder =
-    { builder | cacheBuster = Just paramName }
+withCacheBuster paramName (Request builder) =
+    Request { builder | cacheBuster = Just paramName }
 
 
 {-| Set a decoder of data container. By default it set as `Decode.field "data"`.
@@ -399,8 +428,8 @@ withCacheBuster paramName builder =
 
 -}
 withDataDecoder : (Decoder a -> Decoder a) -> Request a -> Request a
-withDataDecoder dataDecoder builder =
-    { builder | dataDecoder = dataDecoder }
+withDataDecoder dataDecoder (Request builder) =
+    Request { builder | dataDecoder = dataDecoder }
 
 
 {-| A Request can fail in a couple ways:
@@ -428,7 +457,7 @@ Things that will be lost:
 
 -}
 toHttpRequest : Request a -> Http.Request a
-toHttpRequest builder =
+toHttpRequest (Request builder) =
     let
         fullUrl =
             case joinUrlEncoded builder.queryParams of
@@ -462,22 +491,22 @@ HttpBuilder, including:
 
 -}
 toTask : Request a -> Task Error a
-toTask builder =
+toTask (Request builder) =
     case builder.cacheBuster of
         Nothing ->
-            toPlainTask builder
+            toPlainTask (Request builder)
 
         Just buster ->
             Time.now
-                |> Task.map (flip (withQueryParam buster) builder << toString)
+                |> Task.map (flip (withQueryParam buster) (Request builder) << toString)
                 |> Task.andThen toPlainTask
 
 
 {-| Send the request.
 -}
 send : (Result Error a -> msg) -> Request a -> Cmd msg
-send tagger builder =
-    Task.attempt tagger (toTask builder)
+send tagger request =
+    Task.attempt tagger (toTask request)
 
 
 joinUrlEncoded : List ( String, String ) -> String

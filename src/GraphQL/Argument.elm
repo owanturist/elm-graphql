@@ -39,7 +39,7 @@ module GraphQL.Argument
 -}
 
 import Array exposing (Array)
-import GraphQL.Internal as Internal exposing (wrap)
+import GraphQL.Internal as Internal
 import Json.Encode as Json
 
 
