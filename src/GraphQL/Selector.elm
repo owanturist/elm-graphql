@@ -331,34 +331,23 @@ then a few older ones that you still support. You could use `andThen` to be
 even more particular if you wanted.
 
 -}
-oneOf : List (Selector a) -> Selector (a -> b) -> Selector b
-oneOf selectors (Selector parentQuery next) =
+oneOf : List (Selector a) -> Selector a
+oneOf selectors =
     let
         ( queries, decoders ) =
-            List.foldr
-                (\(Selector query decoder) ( queries, decoders ) ->
-                    ( query :: queries
-                    , decoder :: decoders
-                    )
-                )
-                ( [], [] )
-                selectors
+            selectors
+                |> List.map (\(Selector query decoder) -> ( query, decoder ))
+                |> List.unzip
 
         query =
-            case ( List.filterMap identity queries, parentQuery ) of
-                ( [], Nothing ) ->
+            case List.filterMap identity queries of
+                [] ->
                     Nothing
 
-                ( [], Just prev ) ->
-                    Just prev
-
-                ( many, Nothing ) ->
+                many ->
                     Just (String.join " " many)
-
-                ( many, Just prev ) ->
-                    Just (prev ++ " " ++ String.join " " many)
     in
-    Selector query (Json.map2 (|>) (Json.oneOf decoders) next)
+    Selector query (Json.oneOf decoders)
 
 
 {-| A JSON value.
