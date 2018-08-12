@@ -369,9 +369,9 @@ type alias Value =
 
 {-| Render GraphQL representation from a Selector.
 -}
-render : Selector a -> Maybe String
+render : Selector a -> String
 render (Selector query _) =
-    query
+    Maybe.withDefault "" query
 
 
 {-| Build a Decoder from a Selector.

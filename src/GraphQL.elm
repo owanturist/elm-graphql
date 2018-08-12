@@ -185,7 +185,7 @@ subscription =
 render : GraphQL a -> String
 render (GraphQL operation name selector) =
     (operation ++ " " ++ name)
-        ++ Internal.wrap "{" "}" (Maybe.withDefault "" (Selector.render selector))
+        ++ Internal.wrap "{" "}" (Selector.render selector)
 
 
 {-| Build a Decoder from a GraphQL.
