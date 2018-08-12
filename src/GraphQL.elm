@@ -182,11 +182,10 @@ subscription =
 
 {-| Render GraphQL representation from a GraphQL.
 -}
-render : GraphQL a -> Maybe String
+render : GraphQL a -> String
 render (GraphQL operation name selector) =
-    Maybe.map
-        ((++) (operation ++ " " ++ name) << Internal.wrap "{" "}")
-        (Selector.render selector)
+    (operation ++ " " ++ name)
+        ++ Internal.wrap "{" "}" (Maybe.withDefault "" (Selector.render selector))
 
 
 {-| Build a Decoder from a GraphQL.
@@ -222,16 +221,13 @@ requestBuilder isGetMethod url graphql =
         ( methodStr, queryParams, body ) =
             if isGetMethod then
                 ( "GET"
-                , [ Maybe.map ((,) "query") query ]
-                    |> List.filterMap identity
+                , [ ( "query", query ) ]
                 , Http.emptyBody
                 )
             else
                 ( "POST"
                 , []
-                , [ Maybe.map ((,) "query" << Encode.string) query
-                  ]
-                    |> List.filterMap identity
+                , [ ( "query", Encode.string query ) ]
                     |> Encode.object
                     |> Http.jsonBody
                 )
