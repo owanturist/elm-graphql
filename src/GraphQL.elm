@@ -218,7 +218,7 @@ requestBuilder isGetMethod url graphql =
         query =
             render graphql
 
-        ( methodStr, queryParams, body ) =
+        ( method, queryParams, body ) =
             if isGetMethod then
                 ( "GET"
                 , [ ( "query", query ) ]
@@ -233,7 +233,7 @@ requestBuilder isGetMethod url graphql =
                 )
     in
     Request
-        { method = methodStr
+        { method = method
         , url = url
         , headers = []
         , body = body
@@ -305,7 +305,7 @@ withHeader key value (Request builder) =
 -}
 withHeaders : List ( String, String ) -> Request a -> Request a
 withHeaders headerPairs (Request builder) =
-    Request { builder | headers = List.map (uncurry Http.header) headerPairs ++ builder.headers }
+    Request { builder | headers = builder.headers ++ List.map (uncurry Http.header) headerPairs }
 
 
 {-| Add a bearer token to a request.
@@ -320,7 +320,7 @@ withHeaders headerPairs (Request builder) =
 -}
 withBearerToken : String -> Request a -> Request a
 withBearerToken value (Request builder) =
-    Request { builder | headers = Http.header "Authorization" ("Bearer " ++ value) :: builder.headers }
+    Request { builder | headers = builder.headers ++ [ Http.header "Authorization" ("Bearer " ++ value) ] }
 
 
 {-| Add a query param to the url for the request.
