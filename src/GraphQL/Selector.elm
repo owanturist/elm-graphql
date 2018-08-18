@@ -206,25 +206,30 @@ select alias name arguments (Selector query1 decoder) (Selector query2 next) =
                     alias ++ ":" ++ name
 
         args =
-            Internal.renderPairsOfArguments arguments
-                |> Maybe.map (Internal.wrap "(" ")")
-                |> Maybe.withDefault ""
+            case Internal.renderPairsOfArguments arguments of
+                Nothing ->
+                    ""
 
-        query =
-            case ( query1, query2 ) of
-                ( Nothing, Nothing ) ->
-                    fieldOrAlias ++ args
+                Just args ->
+                    Internal.wrap "(" ")" args
 
-                ( Nothing, Just prev ) ->
-                    prev ++ " " ++ fieldOrAlias ++ args
+        prev =
+            case query2 of
+                Nothing ->
+                    ""
 
-                ( Just child, Nothing ) ->
-                    fieldOrAlias ++ args ++ Internal.wrap "{" "}" child
+                Just query ->
+                    query ++ " "
 
-                ( Just child, Just prev ) ->
-                    prev ++ " " ++ fieldOrAlias ++ args ++ Internal.wrap "{" "}" child
+        nested =
+            case query1 of
+                Nothing ->
+                    ""
+
+                Just query ->
+                    Internal.wrap "{" "}" query
     in
-    Selector (Just query) (Json.map2 (|>) fieldDecoder next)
+    Selector (Just (prev ++ fieldOrAlias ++ args ++ nested)) (Json.map2 (|>) fieldDecoder next)
 
 
 {-| -}
