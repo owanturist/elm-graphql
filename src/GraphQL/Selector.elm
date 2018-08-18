@@ -191,8 +191,8 @@ keyValuePairs (Selector query decoder) =
     Selector query (Json.keyValuePairs decoder)
 
 
-selector : Maybe String -> String -> List ( String, Argument ) -> Selector a -> Selector (a -> b) -> Selector b
-selector alias name arguments (Selector query1 decoder) (Selector query2 next) =
+select : Maybe String -> String -> List ( String, Argument ) -> Selector a -> Selector (a -> b) -> Selector b
+select alias name arguments (Selector query1 decoder) (Selector query2 next) =
     let
         fieldDecoder =
             Json.field (Maybe.withDefault name alias) decoder
@@ -230,13 +230,13 @@ selector alias name arguments (Selector query1 decoder) (Selector query2 next) =
 {-| -}
 field : String -> List ( String, Argument ) -> Selector a -> Selector (a -> b) -> Selector b
 field =
-    selector Nothing
+    select Nothing
 
 
 {-| -}
 aliased : String -> String -> List ( String, Argument ) -> Selector a -> Selector (a -> b) -> Selector b
 aliased =
-    selector << Just
+    select << Just
 
 
 {-| Version of `field` for selection single field.
