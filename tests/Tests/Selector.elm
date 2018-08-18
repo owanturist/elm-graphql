@@ -1118,7 +1118,7 @@ oneOfSingleFieldTests =
     let
         selector =
             Selector.oneOf
-                [ Selector.field "username" [] Selector.string Selector.singleton
+                [ Selector.singleton "username" [] Selector.string
                 ]
     in
     [ test "invalid source" <|

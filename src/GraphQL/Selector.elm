@@ -46,7 +46,7 @@ module GraphQL.Selector
 
 # Object Primitives
 
-@docs field, aliased, index
+@docs field, aliased, index, singleton, on
 
 
 # Inconsistent Structure
@@ -62,7 +62,7 @@ module GraphQL.Selector
 
 # Fancy Decoding
 
-@docs map, andThen, succeed, fail, value, null, on, singleton
+@docs map, andThen, succeed, fail, value, null
 
 -}
 
@@ -237,6 +237,21 @@ field =
 aliased : String -> String -> List ( String, Argument ) -> Selector a -> Selector (a -> b) -> Selector b
 aliased =
     selector << Just
+
+
+{-| Version of `field` for selection single field.
+
+    singleton "id" [] string
+
+    -- equals to
+
+    succeed identity
+        |> field "id" [] string
+
+-}
+singleton : String -> List ( String, Argument ) -> Selector a -> Selector a
+singleton name arguments selector =
+    field name arguments selector (succeed identity)
 
 
 {-| -}
@@ -478,13 +493,3 @@ So if you ever see a `null`, this will return whatever value you specified.
 null : a -> Selector a
 null =
     Selector Nothing << Json.null
-
-
-{-| An alias for `succeed identity`.
-
-    field "id" [] string singleton
-
--}
-singleton : Selector (a -> a)
-singleton =
-    succeed identity
