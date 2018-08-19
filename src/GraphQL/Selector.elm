@@ -388,8 +388,8 @@ singleton name arguments selector =
 
 
 {-| -}
-on : List ( String, Selector a ) -> Selector (a -> b) -> Selector b
-on selectors (Selector prevQuery next) =
+on : List ( String, Selector a ) -> Selector a
+on selectors =
     let
         ( queries, decoders ) =
             selectors
@@ -400,22 +400,8 @@ on selectors (Selector prevQuery next) =
                         )
                     )
                 |> List.unzip
-
-        query =
-            case ( queries, prevQuery ) of
-                ( [], Nothing ) ->
-                    Nothing
-
-                ( [], Just prev ) ->
-                    Just prev
-
-                ( many, Nothing ) ->
-                    Just (String.join " " many)
-
-                ( many, Just prev ) ->
-                    Just (prev ++ " " ++ String.join " " many)
     in
-    Selector query (Json.map2 (|>) (Json.oneOf decoders) next)
+    Selector (Just (String.join " " queries)) (Json.oneOf decoders)
 
 
 {-| Try a bunch of different decoders. This can be useful if the JSON may come
