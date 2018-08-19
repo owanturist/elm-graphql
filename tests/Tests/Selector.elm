@@ -8,11 +8,6 @@ import GraphQL.Selector as Selector exposing (Selector)
 import Test exposing (Test, describe, test)
 
 
-type SearchResult
-    = User String
-    | Counter Int
-
-
 tests : Test
 tests =
     describe "GraphQL.Selector"
@@ -34,6 +29,7 @@ tests =
         , describe "GraphQL.Selector.succeed" succeedTests
         , describe "GraphQL.Selector.fail" failTests
         , describe "GraphQL.Selector.null" nullTests
+        , describe "GraphQL.Selector.on" onTests
         ]
 
 
@@ -46,7 +42,8 @@ structureTests =
                 |> Expect.equal ""
     , test "Single graph" <|
         \_ ->
-            Selector.singleton "bar" [] Selector.string
+            Selector.succeed identity
+                |> Selector.field "bar" [] Selector.string
                 |> Selector.render
                 |> Expect.equal "bar"
     , test "Multiple graph" <|
@@ -59,12 +56,16 @@ structureTests =
                 |> Expect.equal "bar foo baz"
     , test "Nested graph" <|
         \_ ->
-            Selector.singleton "bar"
-                []
-                (Selector.singleton "foo"
+            Selector.succeed identity
+                |> Selector.field "bar"
                     []
-                    (Selector.singleton "baz" [] Selector.string)
-                )
+                    (Selector.succeed identity
+                        |> Selector.field "foo"
+                            []
+                            (Selector.succeed identity
+                                |> Selector.field "baz" [] Selector.string
+                            )
+                    )
                 |> Selector.render
                 |> Expect.equal "bar{foo{baz}}"
     , test "Nested multiple graph" <|
@@ -89,22 +90,25 @@ structureTests =
                 |> Expect.equal "bar foo{bar1 foo1{bar2 foo2 baz2} baz1} baz"
     , test "Argumented graph" <|
         \_ ->
-            Selector.singleton "bar"
-                [ ( "foo", Argument.string "baz" )
-                ]
-                Selector.string
+            Selector.succeed identity
+                |> Selector.field "bar"
+                    [ ( "foo", Argument.string "baz" )
+                    ]
+                    Selector.string
                 |> Selector.render
                 |> Expect.equal """bar(foo:"baz")"""
     , test "Nested argumented graph" <|
         \_ ->
-            Selector.singleton "bar"
-                [ ( "foo", Argument.string "baz" )
-                ]
-                (Selector.singleton "bar1"
-                    [ ( "foo1", Argument.string "baz1" )
+            Selector.succeed identity
+                |> Selector.field "bar"
+                    [ ( "foo", Argument.string "baz" )
                     ]
-                    Selector.string
-                )
+                    (Selector.succeed identity
+                        |> Selector.field "bar1"
+                            [ ( "foo1", Argument.string "baz1" )
+                            ]
+                            Selector.string
+                    )
                 |> Selector.render
                 |> Expect.equal """bar(foo:"baz"){bar1(foo1:"baz1")}"""
     , test "Aliased graph" <|
@@ -126,57 +130,66 @@ structureTests =
     , test "Full graph" <|
         \_ ->
             Selector.succeed (,,)
-                |> Selector.aliased "bar"
+                |> Selector.aliased
+                    "bar"
                     "bar_zero"
                     [ ( "str", Argument.string "zero" )
                     , ( "int", Argument.int 0 )
                     ]
                     Selector.string
-                |> Selector.aliased "foo"
+                |> Selector.aliased
+                    "foo"
                     "foo_zero"
                     [ ( "str", Argument.string "zero" )
                     , ( "int", Argument.int 0 )
                     ]
                     (Selector.succeed (,,)
-                        |> Selector.aliased "bar1"
+                        |> Selector.aliased
+                            "bar1"
                             "bar_first"
                             [ ( "str", Argument.string "first" )
                             , ( "int", Argument.int 1 )
                             ]
                             Selector.string
-                        |> Selector.aliased "foo1"
+                        |> Selector.aliased
+                            "foo1"
                             "foo_first"
                             [ ( "str", Argument.string "first" )
                             , ( "int", Argument.int 1 )
                             ]
                             (Selector.succeed (,,)
-                                |> Selector.aliased "bar2"
+                                |> Selector.aliased
+                                    "bar2"
                                     "bar_second"
                                     [ ( "str", Argument.string "second" )
                                     , ( "int", Argument.int 2 )
                                     ]
                                     Selector.string
-                                |> Selector.aliased "foo2"
+                                |> Selector.aliased
+                                    "foo2"
                                     "foo_second"
                                     [ ( "str", Argument.string "second" )
                                     , ( "int", Argument.int 2 )
                                     ]
                                     Selector.string
-                                |> Selector.aliased "baz2"
+                                |> Selector.aliased
+                                    "baz2"
                                     "baz_second"
                                     [ ( "str", Argument.string "second" )
                                     , ( "int", Argument.int 2 )
                                     ]
                                     Selector.string
                             )
-                        |> Selector.aliased "baz1"
+                        |> Selector.aliased
+                            "baz1"
                             "baz_first"
                             [ ( "str", Argument.string "first" )
                             , ( "int", Argument.int 1 )
                             ]
                             Selector.string
                     )
-                |> Selector.aliased "baz"
+                |> Selector.aliased
+                    "baz"
                     "baz_zero"
                     [ ( "str", Argument.string "zero" )
                     , ( "int", Argument.int 0 )
@@ -198,35 +211,35 @@ stringTests =
     [ test "Invalid source with direct selector" <|
         \_ ->
             """
-            0
-            """
+                0
+                """
                 |> Selector.decodeString Selector.string
                 |> Expect.equal (Err "Expecting a String but instead got: 0")
     , test "Valid source with direct selector" <|
         \_ ->
             """
-            "string value"
-            """
+                "string value"
+                """
                 |> Selector.decodeString Selector.string
                 |> Expect.equal (Ok "string value")
     , test "Invalid source with field selector" <|
         \_ ->
             """
-            {
-                "foo": false,
-                "bar": "another value"
-            }
-            """
+                {
+                    "foo": false,
+                    "bar": "another value"
+                }
+                """
                 |> Selector.decodeString fieldSelector
                 |> Expect.equal (Err "Expecting a String at _.foo but instead got: false")
     , test "Valid source with field selector" <|
         \_ ->
             """
-            {
-                "foo": "string value",
-                "bar": "another value"
-            }
-            """
+                {
+                    "foo": "string value",
+                    "bar": "another value"
+                }
+                """
                 |> Selector.decodeString fieldSelector
                 |> Expect.equal (Ok ( "string value", "another value" ))
     , test "Build graph" <|
@@ -254,35 +267,35 @@ boolTests =
     [ test "Invalid source with direct selector" <|
         \_ ->
             """
-            0
-            """
+                0
+                """
                 |> Selector.decodeString Selector.bool
                 |> Expect.equal (Err "Expecting a Bool but instead got: 0")
     , test "Valid source with direct selector" <|
         \_ ->
             """
-            false
-            """
+                false
+                """
                 |> Selector.decodeString Selector.bool
                 |> Expect.equal (Ok False)
     , test "Invalid source with field selector" <|
         \_ ->
             """
-            {
-                "foo": "string value",
-                "bar": true
-            }
-            """
+                {
+                    "foo": "string value",
+                    "bar": true
+                }
+                """
                 |> Selector.decodeString fieldSelector
                 |> Expect.equal (Err "Expecting a Bool at _.foo but instead got: \"string value\"")
     , test "Valid source with field selector" <|
         \_ ->
             """
-            {
-                "foo": true,
-                "bar": false
-            }
-            """
+                {
+                    "foo": true,
+                    "bar": false
+                }
+                """
                 |> Selector.decodeString fieldSelector
                 |> Expect.equal (Ok ( True, False ))
     , test "Build graph" <|
@@ -310,25 +323,25 @@ intTests =
     [ test "Invalid source with direct selector" <|
         \_ ->
             """
-            0.1
-            """
+                0.1
+                """
                 |> Selector.decodeString Selector.int
                 |> Expect.equal (Err "Expecting an Int but instead got: 0.1")
     , test "Valid source with direct selector" <|
         \_ ->
             """
-            1
-            """
+                1
+                """
                 |> Selector.decodeString Selector.int
                 |> Expect.equal (Ok 1)
     , test "Invalid source with field selector" <|
         \_ ->
             """
-            {
-                "foo": "string value",
-                "bar": 0
-            }
-            """
+                {
+                    "foo": "string value",
+                    "bar": 0
+                }
+                """
                 |> Selector.decodeString fieldSelector
                 |> Expect.equal (Err "Expecting an Int at _.foo but instead got: \"string value\"")
     , test "Valid source with field selector" <|
@@ -1058,8 +1071,8 @@ oneOfSingleNonFieldTests =
     ]
 
 
-oneOfMultipleNonFieldSelector : List Test
-oneOfMultipleNonFieldSelector =
+oneOfMultipleNonFieldTests : List Test
+oneOfMultipleNonFieldTests =
     let
         selector =
             Selector.oneOf
@@ -1135,8 +1148,8 @@ oneOfSingleFieldTests =
     ]
 
 
-oneOfMultipleFieldSelector : List Test
-oneOfMultipleFieldSelector =
+oneOfMultipleFieldTests : List Test
+oneOfMultipleFieldTests =
     let
         selector =
             Selector.oneOf
@@ -1262,9 +1275,9 @@ oneOfTests : List Test
 oneOfTests =
     [ describe "GraphQL.Selector.oneOf with empty selector" oneOfEmptyTests
     , describe "GraphQL.Selector.oneOf with singleNonField selector" oneOfSingleNonFieldTests
-    , describe "GraphQL.Selector.oneOf with multipleNonField selector" oneOfMultipleNonFieldSelector
+    , describe "GraphQL.Selector.oneOf with multipleNonField selector" oneOfMultipleNonFieldTests
     , describe "GraphQL.Selector.oneOf with singleField selector" oneOfSingleFieldTests
-    , describe "GraphQL.Selector.oneOf with multipleField selector" oneOfMultipleFieldSelector
+    , describe "GraphQL.Selector.oneOf with multipleField selector" oneOfMultipleFieldTests
     , describe "GraphQL.Selector.oneOf with nested selector" oneOfNestedTests
     ]
 
@@ -1620,4 +1633,470 @@ nullTests =
                     )
                 |> Selector.render
                 |> Expect.equal "foo bar{baz}"
+    ]
+
+
+type SearchResult
+    = User String
+    | Counter Int
+
+
+onSingleEmptyTests : List Test
+onSingleEmptyTests =
+    let
+        selector =
+            Selector.succeed identity
+                |> Selector.on []
+    in
+    [ test "valid source" <|
+        \_ ->
+            """
+            {}
+            """
+                |> Selector.decodeString selector
+                |> Expect.equal (Err "I ran into the following problems:\n\n")
+    , test "graph" <|
+        \_ ->
+            Selector.render selector
+                |> Expect.equal ""
+    ]
+
+
+onMultipleEmptyFieldTests : List Test
+onMultipleEmptyFieldTests =
+    let
+        selector =
+            Selector.succeed (,)
+                |> Selector.on []
+                |> Selector.field "id" [] Selector.string
+    in
+    [ test "invalid source" <|
+        \_ ->
+            """
+            {}
+            """
+                |> Selector.decodeString selector
+                |> Expect.equal (Err "Expecting an object with a field named `id` but instead got: {}")
+    , test "valid source" <|
+        \_ ->
+            """
+            {
+                "id": "identificator"
+            }
+            """
+                |> Selector.decodeString selector
+                |> Expect.equal (Err "I ran into the following problems:\n\n")
+    , test "graph" <|
+        \_ ->
+            Selector.render selector
+                |> Expect.equal "id"
+    ]
+
+
+onSingleNonFieldTests : List Test
+onSingleNonFieldTests =
+    let
+        selector =
+            Selector.succeed identity
+                |> Selector.on
+                    [ ( "User", Selector.string )
+                    ]
+    in
+    [ test "valid source" <|
+        \_ ->
+            """
+            {}
+            """
+                |> Selector.decodeString selector
+                |> Expect.equal
+                    ("I ran into the following problems:\n"
+                        ++ "\nExpecting a String but instead got: {}"
+                        |> Err
+                    )
+    , test "graph" <|
+        \_ ->
+            Selector.render selector
+                |> Expect.equal "...on User{}"
+    ]
+
+
+onMultipleNonFieldTests : List Test
+onMultipleNonFieldTests =
+    let
+        selector =
+            Selector.succeed identity
+                |> Selector.on
+                    [ ( "User", Selector.map User Selector.string )
+                    , ( "Counter", Selector.map Counter Selector.int )
+                    ]
+    in
+    [ test "valid source" <|
+        \_ ->
+            """
+            {}
+            """
+                |> Selector.decodeString selector
+                |> Expect.equal
+                    ("I ran into the following problems:\n"
+                        ++ "\nExpecting a String but instead got: {}"
+                        ++ "\nExpecting an Int but instead got: {}"
+                        |> Err
+                    )
+    , test "graph" <|
+        \_ ->
+            Selector.render selector
+                |> Expect.equal "...on User{} ...on Counter{}"
+    ]
+
+
+onSingleFieldTests : List Test
+onSingleFieldTests =
+    let
+        selector =
+            Selector.succeed identity
+                |> Selector.on
+                    [ ( "User"
+                      , Selector.singleton "username" [] Selector.string
+                      )
+                    ]
+    in
+    [ test "invalid source" <|
+        \_ ->
+            """
+            {}
+            """
+                |> Selector.decodeString selector
+                |> Expect.equal
+                    ("I ran into the following problems:\n"
+                        ++ "\nExpecting an object with a field named `username` but instead got: {}"
+                        |> Err
+                    )
+    , test "valid source" <|
+        \_ ->
+            """
+            {
+                "username": "Bob"
+            }
+            """
+                |> Selector.decodeString selector
+                |> Expect.equal (Ok "Bob")
+    , test "graph" <|
+        \_ ->
+            Selector.render selector
+                |> Expect.equal "...on User{username}"
+    ]
+
+
+onMultipeFieldTests : List Test
+onMultipeFieldTests =
+    let
+        selector =
+            Selector.succeed identity
+                |> Selector.on
+                    [ ( "User"
+                      , Selector.succeed User
+                            |> Selector.field "username" [] Selector.string
+                      )
+                    , ( "Counter"
+                      , Selector.succeed Counter
+                            |> Selector.field "count" [] Selector.int
+                      )
+                    ]
+    in
+    [ test "invalid source" <|
+        \_ ->
+            """
+            {}
+            """
+                |> Selector.decodeString selector
+                |> Expect.equal
+                    ("I ran into the following problems:\n"
+                        ++ "\nExpecting an object with a field named `username` but instead got: {}"
+                        ++ "\nExpecting an object with a field named `count` but instead got: {}"
+                        |> Err
+                    )
+    , test "valid User source" <|
+        \_ ->
+            """
+            {
+                "username": "Bob"
+            }
+            """
+                |> Selector.decodeString selector
+                |> Expect.equal (Ok (User "Bob"))
+    , test "valid Counter" <|
+        \_ ->
+            """
+            {
+                "count": 5
+            }
+            """
+                |> Selector.decodeString selector
+                |> Expect.equal (Ok (Counter 5))
+    , test "graph" <|
+        \_ ->
+            Selector.render selector
+                |> Expect.equal "...on User{username} ...on Counter{count}"
+    ]
+
+
+onMultipleToSingleNonFieldTests : List Test
+onMultipleToSingleNonFieldTests =
+    let
+        selector =
+            Selector.succeed (,)
+                |> Selector.on
+                    [ ( "User", Selector.string )
+                    ]
+                |> Selector.field "id" [] Selector.string
+    in
+    [ test "invalid source" <|
+        \_ ->
+            """
+            {}
+            """
+                |> Selector.decodeString selector
+                |> Expect.equal (Err "Expecting an object with a field named `id` but instead got: {}")
+    , test "valid source" <|
+        \_ ->
+            """
+            {
+                "id": "identificator"
+            }
+            """
+                |> Selector.decodeString selector
+                |> Expect.equal
+                    ("I ran into the following problems:\n"
+                        ++ "\nExpecting a String but instead got: {\"id\":\"identificator\"}"
+                        |> Err
+                    )
+    , test "graph" <|
+        \_ ->
+            Selector.render selector
+                |> Expect.equal "...on User{} id"
+    ]
+
+
+onMultipleToSingleFieldTests : List Test
+onMultipleToSingleFieldTests =
+    let
+        selector =
+            Selector.succeed (,)
+                |> Selector.field "id" [] Selector.string
+                |> Selector.on
+                    [ ( "User"
+                      , Selector.singleton "username" [] Selector.string
+                      )
+                    ]
+    in
+    [ test "invalid source" <|
+        \_ ->
+            """
+            {}
+            """
+                |> Selector.decodeString selector
+                |> Expect.equal
+                    ("I ran into the following problems:\n"
+                        ++ "\nExpecting an object with a field named `username` but instead got: {}"
+                        |> Err
+                    )
+    , test "valid User source" <|
+        \_ ->
+            """
+            {
+                "id": "identificator",
+                "username": "Bob"
+            }
+            """
+                |> Selector.decodeString selector
+                |> Expect.equal (Ok ( "identificator", "Bob" ))
+    , test "graph" <|
+        \_ ->
+            Selector.render selector
+                |> Expect.equal "id ...on User{username}"
+    ]
+
+
+onMultipleToMultipeNonFieldTests : List Test
+onMultipleToMultipeNonFieldTests =
+    let
+        selector =
+            Selector.succeed (,)
+                |> Selector.on
+                    [ ( "User", Selector.map User Selector.string )
+                    , ( "Counter", Selector.map Counter Selector.int )
+                    ]
+                |> Selector.field "id" [] Selector.string
+    in
+    [ test "invalid source" <|
+        \_ ->
+            """
+            {}
+            """
+                |> Selector.decodeString selector
+                |> Expect.equal (Err "Expecting an object with a field named `id` but instead got: {}")
+    , test "valid source" <|
+        \_ ->
+            """
+            {
+                "id": "identificator"
+            }
+            """
+                |> Selector.decodeString selector
+                |> Expect.equal
+                    ("I ran into the following problems:\n"
+                        ++ "\nExpecting a String but instead got: {\"id\":\"identificator\"}"
+                        ++ "\nExpecting an Int but instead got: {\"id\":\"identificator\"}"
+                        |> Err
+                    )
+    , test "graph" <|
+        \_ ->
+            Selector.render selector
+                |> Expect.equal "...on User{} ...on Counter{} id"
+    ]
+
+
+onMultipleToMultipeFieldTests : List Test
+onMultipleToMultipeFieldTests =
+    let
+        selector =
+            Selector.succeed (,)
+                |> Selector.on
+                    [ ( "User"
+                      , Selector.succeed User
+                            |> Selector.field "username" [] Selector.string
+                      )
+                    , ( "Counter"
+                      , Selector.succeed Counter
+                            |> Selector.field "count" [] Selector.int
+                      )
+                    ]
+                |> Selector.field "id" [] Selector.string
+    in
+    [ test "invalid source" <|
+        \_ ->
+            """
+            {}
+            """
+                |> Selector.decodeString selector
+                |> Expect.equal (Err "Expecting an object with a field named `id` but instead got: {}")
+    , test "valid User source" <|
+        \_ ->
+            """
+            {
+                "id": "identificator",
+                "username": "Bob"
+            }
+            """
+                |> Selector.decodeString selector
+                |> Expect.equal (Ok ( User "Bob", "identificator" ))
+    , test "valid Counter source" <|
+        \_ ->
+            """
+            {
+                "id": "identificator",
+                "count": 5
+            }
+            """
+                |> Selector.decodeString selector
+                |> Expect.equal (Ok ( Counter 5, "identificator" ))
+    , test "graph" <|
+        \_ ->
+            Selector.render selector
+                |> Expect.equal "...on User{username} ...on Counter{count} id"
+    ]
+
+
+onNestedTests : List Test
+onNestedTests =
+    let
+        selector =
+            Selector.succeed (,)
+                |> Selector.field "search" [] Selector.string
+                |> Selector.field "results"
+                    []
+                    (Selector.list
+                        (Selector.succeed (,)
+                            |> Selector.on
+                                [ ( "User"
+                                  , Selector.succeed User
+                                        |> Selector.field "username" [] Selector.string
+                                  )
+                                , ( "Counter"
+                                  , Selector.succeed Counter
+                                        |> Selector.field "count" [] Selector.int
+                                  )
+                                ]
+                            |> Selector.field "id" [] Selector.string
+                        )
+                    )
+    in
+    [ test "invalid source" <|
+        \_ ->
+            """
+            {}
+            """
+                |> Selector.decodeString selector
+                |> Expect.equal (Err "Expecting an object with a field named `results` but instead got: {}")
+    , test "valid empty source" <|
+        \_ ->
+            """
+            {
+                "search": "foo",
+                "results": []
+            }
+            """
+                |> Selector.decodeString selector
+                |> Expect.equal (Ok ( "foo", [] ))
+    , test "valid mixed source" <|
+        \_ ->
+            """
+            {
+                "search": "bar",
+                "results": [
+                    {
+                        "id": "identificator1",
+                        "username": "Bob"
+                    },
+                    {
+                        "id": "identificator2",
+                        "count": 5
+                    },
+                    {
+                        "id": "identificator3",
+                        "username": "Tom"
+                    }
+                ]
+            }
+            """
+                |> Selector.decodeString selector
+                |> Expect.equal
+                    (Ok
+                        ( "bar"
+                        , [ ( User "Bob", "identificator1" )
+                          , ( Counter 5, "identificator2" )
+                          , ( User "Tom", "identificator3" )
+                          ]
+                        )
+                    )
+    , test "graph" <|
+        \_ ->
+            Selector.render selector
+                |> Expect.equal "search results{...on User{username} ...on Counter{count} id}"
+    ]
+
+
+onTests : List Test
+onTests =
+    [ describe "GraphQL.Selector.on with single empty selector" onSingleEmptyTests
+    , describe "GraphQL.Selector.on with multiple empty field selector" onMultipleEmptyFieldTests
+    , describe "GraphQL.Selector.on with single non field selector" onSingleNonFieldTests
+    , describe "GraphQL.Selector.on with multiple non field selector" onMultipleNonFieldTests
+    , describe "GraphQL.Selector.on with single field selector" onSingleFieldTests
+    , describe "GraphQL.Selector.on with multiple field selector" onMultipeFieldTests
+    , describe "GraphQL.Selector.on with multiple to single non field selector" onMultipleToSingleNonFieldTests
+    , describe "GraphQL.Selector.on with multiple to single field selector" onMultipleToSingleFieldTests
+    , describe "GraphQL.Selector.on with multiple to multiple non field selector" onMultipleToMultipeNonFieldTests
+    , describe "GraphQL.Selector.on with multiple to multiple field selector" onMultipleToMultipeFieldTests
+    , describe "GraphQL.Selector.on with nested selector" onNestedTests
     ]
