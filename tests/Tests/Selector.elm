@@ -4,7 +4,7 @@ import Array
 import Dict
 import Expect exposing (Expectation)
 import GraphQL.Argument as Argument
-import GraphQL.Selector as Selector exposing (Selector)
+import GraphQL.Selector as Selector exposing (($>), Selector)
 import Test exposing (Test, describe, test)
 
 
@@ -42,50 +42,48 @@ structureTests =
                 |> Expect.equal ""
     , test "Single graph" <|
         \_ ->
-            Selector.singleton "bar" [] Selector.string
+            Selector.field "bar" [] Selector.string
                 |> Selector.render
                 |> Expect.equal "bar"
     , test "Multiple graph" <|
         \_ ->
             Selector.succeed (,,)
-                |> Selector.field "bar" [] Selector.string
-                |> Selector.field "foo" [] Selector.string
-                |> Selector.field "baz" [] Selector.string
+                $> Selector.field "bar" [] Selector.string
+                $> Selector.field "foo" [] Selector.string
+                $> Selector.field "baz" [] Selector.string
                 |> Selector.render
                 |> Expect.equal "bar foo baz"
     , test "Nested graph" <|
         \_ ->
-            Selector.singleton "bar"
-                []
-                (Selector.singleton "foo"
-                    []
-                    (Selector.singleton "baz" [] Selector.string)
-                )
+            Selector.string
+                |> Selector.field "baz" []
+                |> Selector.field "foo" []
+                |> Selector.field "bar" []
                 |> Selector.render
                 |> Expect.equal "bar{foo{baz}}"
     , test "Nested multiple graph" <|
         \_ ->
             Selector.succeed (,,)
-                |> Selector.field "bar" [] Selector.string
-                |> Selector.field "foo"
+                $> Selector.field "bar" [] Selector.string
+                $> Selector.field "foo"
                     []
                     (Selector.succeed (,,)
-                        |> Selector.field "bar1" [] Selector.string
-                        |> Selector.field "foo1"
+                        $> Selector.field "bar1" [] Selector.string
+                        $> Selector.field "foo1"
                             []
                             (Selector.succeed (,,)
-                                |> Selector.field "bar2" [] Selector.string
-                                |> Selector.field "foo2" [] Selector.string
-                                |> Selector.field "baz2" [] Selector.string
+                                $> Selector.field "bar2" [] Selector.string
+                                $> Selector.field "foo2" [] Selector.string
+                                $> Selector.field "baz2" [] Selector.string
                             )
-                        |> Selector.field "baz1" [] Selector.string
+                        $> Selector.field "baz1" [] Selector.string
                     )
-                |> Selector.field "baz" [] Selector.string
+                $> Selector.field "baz" [] Selector.string
                 |> Selector.render
                 |> Expect.equal "bar foo{bar1 foo1{bar2 foo2 baz2} baz1} baz"
     , test "Argumented graph" <|
         \_ ->
-            Selector.singleton "bar"
+            Selector.field "bar"
                 [ ( "foo", Argument.string "baz" )
                 ]
                 Selector.string
@@ -93,10 +91,10 @@ structureTests =
                 |> Expect.equal """bar(foo:"baz")"""
     , test "Nested argumented graph" <|
         \_ ->
-            Selector.singleton "bar"
+            Selector.field "bar"
                 [ ( "foo", Argument.string "baz" )
                 ]
-                (Selector.singleton "bar1"
+                (Selector.field "bar1"
                     [ ( "foo1", Argument.string "baz1" )
                     ]
                     Selector.string
@@ -105,66 +103,64 @@ structureTests =
                 |> Expect.equal """bar(foo:"baz"){bar1(foo1:"baz1")}"""
     , test "Aliased graph" <|
         \_ ->
-            Selector.succeed identity
-                |> Selector.aliased "foo" "bar" [] Selector.string
+            Selector.aliased "foo" "bar" [] Selector.string
                 |> Selector.render
                 |> Expect.equal "foo:bar"
     , test "Aliased argumented graph" <|
         \_ ->
-            Selector.succeed identity
-                |> Selector.aliased "foo"
-                    "bar"
-                    [ ( "baz", Argument.int 0 )
-                    ]
-                    Selector.string
+            Selector.aliased "foo"
+                "bar"
+                [ ( "baz", Argument.int 0 )
+                ]
+                Selector.string
                 |> Selector.render
                 |> Expect.equal "foo:bar(baz:0)"
     , test "Full graph" <|
         \_ ->
             Selector.succeed (,,)
-                |> Selector.aliased
+                $> Selector.aliased
                     "bar"
                     "bar_zero"
                     [ ( "str", Argument.string "zero" )
                     , ( "int", Argument.int 0 )
                     ]
                     Selector.string
-                |> Selector.aliased
+                $> Selector.aliased
                     "foo"
                     "foo_zero"
                     [ ( "str", Argument.string "zero" )
                     , ( "int", Argument.int 0 )
                     ]
                     (Selector.succeed (,,)
-                        |> Selector.aliased
+                        $> Selector.aliased
                             "bar1"
                             "bar_first"
                             [ ( "str", Argument.string "first" )
                             , ( "int", Argument.int 1 )
                             ]
                             Selector.string
-                        |> Selector.aliased
+                        $> Selector.aliased
                             "foo1"
                             "foo_first"
                             [ ( "str", Argument.string "first" )
                             , ( "int", Argument.int 1 )
                             ]
                             (Selector.succeed (,,)
-                                |> Selector.aliased
+                                $> Selector.aliased
                                     "bar2"
                                     "bar_second"
                                     [ ( "str", Argument.string "second" )
                                     , ( "int", Argument.int 2 )
                                     ]
                                     Selector.string
-                                |> Selector.aliased
+                                $> Selector.aliased
                                     "foo2"
                                     "foo_second"
                                     [ ( "str", Argument.string "second" )
                                     , ( "int", Argument.int 2 )
                                     ]
                                     Selector.string
-                                |> Selector.aliased
+                                $> Selector.aliased
                                     "baz2"
                                     "baz_second"
                                     [ ( "str", Argument.string "second" )
@@ -172,7 +168,7 @@ structureTests =
                                     ]
                                     Selector.string
                             )
-                        |> Selector.aliased
+                        $> Selector.aliased
                             "baz1"
                             "baz_first"
                             [ ( "str", Argument.string "first" )
@@ -180,7 +176,7 @@ structureTests =
                             ]
                             Selector.string
                     )
-                |> Selector.aliased
+                $> Selector.aliased
                     "baz"
                     "baz_zero"
                     [ ( "str", Argument.string "zero" )
@@ -197,8 +193,8 @@ stringTests =
     let
         fieldSelector =
             Selector.succeed (,)
-                |> Selector.field "foo" [] Selector.string
-                |> Selector.field "bar" [] Selector.string
+                $> Selector.field "foo" [] Selector.string
+                $> Selector.field "bar" [] Selector.string
     in
     [ test "Invalid source with direct selector" <|
         \_ ->
@@ -241,8 +237,8 @@ stringTests =
     , test "Build field graph" <|
         \_ ->
             Selector.succeed (,)
-                |> Selector.field "foo" [] Selector.string
-                |> Selector.field "bar" [] Selector.string
+                $> Selector.field "foo" [] Selector.string
+                $> Selector.field "bar" [] Selector.string
                 |> Selector.render
                 |> Expect.equal "foo bar"
     ]
@@ -253,8 +249,8 @@ boolTests =
     let
         fieldSelector =
             Selector.succeed (,)
-                |> Selector.field "foo" [] Selector.bool
-                |> Selector.field "bar" [] Selector.bool
+                $> Selector.field "foo" [] Selector.bool
+                $> Selector.field "bar" [] Selector.bool
     in
     [ test "Invalid source with direct selector" <|
         \_ ->
@@ -297,8 +293,8 @@ boolTests =
     , test "Build field graph" <|
         \_ ->
             Selector.succeed (,)
-                |> Selector.field "foo" [] Selector.bool
-                |> Selector.field "bar" [] Selector.bool
+                $> Selector.field "foo" [] Selector.bool
+                $> Selector.field "bar" [] Selector.bool
                 |> Selector.render
                 |> Expect.equal "foo bar"
     ]
@@ -309,8 +305,8 @@ intTests =
     let
         fieldSelector =
             Selector.succeed (,)
-                |> Selector.field "foo" [] Selector.int
-                |> Selector.field "bar" [] Selector.int
+                $> Selector.field "foo" [] Selector.int
+                $> Selector.field "bar" [] Selector.int
     in
     [ test "Invalid source with direct selector" <|
         \_ ->
@@ -353,8 +349,8 @@ intTests =
     , test "Build field graph" <|
         \_ ->
             Selector.succeed (,)
-                |> Selector.field "foo" [] Selector.int
-                |> Selector.field "bar" [] Selector.int
+                $> Selector.field "foo" [] Selector.int
+                $> Selector.field "bar" [] Selector.int
                 |> Selector.render
                 |> Expect.equal "foo bar"
     ]
@@ -365,8 +361,8 @@ floatTests =
     let
         fieldSelector =
             Selector.succeed (,)
-                |> Selector.field "foo" [] Selector.float
-                |> Selector.field "bar" [] Selector.float
+                $> Selector.field "foo" [] Selector.float
+                $> Selector.field "bar" [] Selector.float
     in
     [ test "Invalid source with direct selector" <|
         \_ ->
@@ -409,8 +405,8 @@ floatTests =
     , test "Build field graph" <|
         \_ ->
             Selector.succeed (,)
-                |> Selector.field "foo" [] Selector.float
-                |> Selector.field "bar" [] Selector.float
+                $> Selector.field "foo" [] Selector.float
+                $> Selector.field "bar" [] Selector.float
                 |> Selector.render
                 |> Expect.equal "foo bar"
     ]
@@ -421,8 +417,8 @@ nullableTests =
     let
         fieldSelector =
             Selector.succeed (,)
-                |> Selector.field "foo" [] (Selector.nullable Selector.string)
-                |> Selector.field "bar" [] (Selector.nullable Selector.string)
+                $> Selector.field "foo" [] (Selector.nullable Selector.string)
+                $> Selector.field "bar" [] (Selector.nullable Selector.string)
     in
     [ test "Invalid source with direct selector" <|
         \_ ->
@@ -482,15 +478,15 @@ nullableTests =
     , test "Build field graph" <|
         \_ ->
             Selector.succeed (,)
-                |> Selector.field "foo" [] (Selector.nullable Selector.string)
-                |> Selector.field "bar" [] (Selector.nullable Selector.string)
+                $> Selector.field "foo" [] (Selector.nullable Selector.string)
+                $> Selector.field "bar" [] (Selector.nullable Selector.string)
                 |> Selector.render
                 |> Expect.equal "foo bar"
     , test "Build field nested graph" <|
         \_ ->
             Selector.succeed (,)
-                |> Selector.field "foo" [] (Selector.nullable Selector.string)
-                |> Selector.field "bar" [] (Selector.singleton "baz" [] (Selector.nullable Selector.string))
+                $> Selector.field "foo" [] (Selector.nullable Selector.string)
+                $> Selector.field "bar" [] (Selector.field "baz" [] (Selector.nullable Selector.string))
                 |> Selector.render
                 |> Expect.equal "foo bar{baz}"
     ]
@@ -501,8 +497,8 @@ listTests =
     let
         fieldSelector =
             Selector.succeed (,)
-                |> Selector.field "foo" [] (Selector.list Selector.bool)
-                |> Selector.field "bar" [] (Selector.list Selector.int)
+                $> Selector.field "foo" [] (Selector.list Selector.bool)
+                $> Selector.field "bar" [] (Selector.list Selector.int)
     in
     [ test "Invalid source with direct selector" <|
         \_ ->
@@ -552,15 +548,15 @@ listTests =
     , test "Build field graph" <|
         \_ ->
             Selector.succeed (,)
-                |> Selector.field "foo" [] (Selector.list Selector.string)
-                |> Selector.field "bar" [] (Selector.list Selector.string)
+                $> Selector.field "foo" [] (Selector.list Selector.string)
+                $> Selector.field "bar" [] (Selector.list Selector.string)
                 |> Selector.render
                 |> Expect.equal "foo bar"
     , test "Build field nested graph" <|
         \_ ->
             Selector.succeed (,)
-                |> Selector.field "foo" [] (Selector.list Selector.string)
-                |> Selector.field "bar" [] (Selector.singleton "baz" [] (Selector.list Selector.string))
+                $> Selector.field "foo" [] (Selector.list Selector.string)
+                $> Selector.field "bar" [] (Selector.field "baz" [] (Selector.list Selector.string))
                 |> Selector.render
                 |> Expect.equal "foo bar{baz}"
     ]
@@ -571,8 +567,8 @@ arrayTests =
     let
         fieldSelector =
             Selector.succeed (,)
-                |> Selector.field "foo" [] (Selector.array Selector.bool)
-                |> Selector.field "bar" [] (Selector.array Selector.int)
+                $> Selector.field "foo" [] (Selector.array Selector.bool)
+                $> Selector.field "bar" [] (Selector.array Selector.int)
     in
     [ test "Invalid source with direct selector" <|
         \_ ->
@@ -627,15 +623,15 @@ arrayTests =
     , test "Build field graph" <|
         \_ ->
             Selector.succeed (,)
-                |> Selector.field "foo" [] (Selector.array Selector.string)
-                |> Selector.field "bar" [] (Selector.array Selector.string)
+                $> Selector.field "foo" [] (Selector.array Selector.string)
+                $> Selector.field "bar" [] (Selector.array Selector.string)
                 |> Selector.render
                 |> Expect.equal "foo bar"
     , test "Build field nested graph" <|
         \_ ->
             Selector.succeed (,)
-                |> Selector.field "foo" [] (Selector.array Selector.string)
-                |> Selector.field "bar" [] (Selector.singleton "baz" [] (Selector.array Selector.string))
+                $> Selector.field "foo" [] (Selector.array Selector.string)
+                $> Selector.field "bar" [] (Selector.field "baz" [] (Selector.array Selector.string))
                 |> Selector.render
                 |> Expect.equal "foo bar{baz}"
     ]
@@ -646,8 +642,8 @@ dictTests =
     let
         fieldSelector =
             Selector.succeed (,)
-                |> Selector.field "foo" [] (Selector.dict Selector.bool)
-                |> Selector.field "bar" [] (Selector.dict Selector.int)
+                $> Selector.field "foo" [] (Selector.dict Selector.bool)
+                $> Selector.field "bar" [] (Selector.dict Selector.int)
     in
     [ test "Invalid source with direct selector" <|
         \_ ->
@@ -730,15 +726,15 @@ dictTests =
     , test "Build field graph" <|
         \_ ->
             Selector.succeed (,)
-                |> Selector.field "foo" [] (Selector.dict Selector.string)
-                |> Selector.field "bar" [] (Selector.dict Selector.string)
+                $> Selector.field "foo" [] (Selector.dict Selector.string)
+                $> Selector.field "bar" [] (Selector.dict Selector.string)
                 |> Selector.render
                 |> Expect.equal "foo bar"
     , test "Build field nested graph" <|
         \_ ->
             Selector.succeed (,)
-                |> Selector.field "foo" [] (Selector.dict Selector.string)
-                |> Selector.field "bar" [] (Selector.singleton "baz" [] (Selector.dict Selector.string))
+                $> Selector.field "foo" [] (Selector.dict Selector.string)
+                $> Selector.field "bar" [] (Selector.field "baz" [] (Selector.dict Selector.string))
                 |> Selector.render
                 |> Expect.equal "foo bar{baz}"
     ]
@@ -749,8 +745,8 @@ keyValuePairsTests =
     let
         fieldSelector =
             Selector.succeed (,)
-                |> Selector.field "foo" [] (Selector.keyValuePairs Selector.bool)
-                |> Selector.field "bar" [] (Selector.keyValuePairs Selector.int)
+                $> Selector.field "foo" [] (Selector.keyValuePairs Selector.bool)
+                $> Selector.field "bar" [] (Selector.keyValuePairs Selector.int)
     in
     [ test "Invalid source with direct selector" <|
         \_ ->
@@ -830,15 +826,15 @@ keyValuePairsTests =
     , test "Build field graph" <|
         \_ ->
             Selector.succeed (,)
-                |> Selector.field "foo" [] (Selector.keyValuePairs Selector.string)
-                |> Selector.field "bar" [] (Selector.keyValuePairs Selector.string)
+                $> Selector.field "foo" [] (Selector.keyValuePairs Selector.string)
+                $> Selector.field "bar" [] (Selector.keyValuePairs Selector.string)
                 |> Selector.render
                 |> Expect.equal "foo bar"
     , test "Build field nested graph" <|
         \_ ->
             Selector.succeed (,)
-                |> Selector.field "foo" [] (Selector.keyValuePairs Selector.string)
-                |> Selector.field "bar" [] (Selector.singleton "baz" [] (Selector.keyValuePairs Selector.string))
+                $> Selector.field "foo" [] (Selector.keyValuePairs Selector.string)
+                $> Selector.field "bar" [] (Selector.field "baz" [] (Selector.keyValuePairs Selector.string))
                 |> Selector.render
                 |> Expect.equal "foo bar{baz}"
     ]
@@ -849,8 +845,8 @@ indexTests =
     let
         fieldSelector =
             Selector.succeed (,)
-                |> Selector.field "foo" [] (Selector.index 0 Selector.int)
-                |> Selector.field "bar" [] (Selector.index 1 Selector.string)
+                $> Selector.field "foo" [] (Selector.index 0 Selector.int)
+                $> Selector.field "bar" [] (Selector.index 1 Selector.string)
     in
     [ test "Invalid source with direct selector" <|
         \_ ->
@@ -904,15 +900,15 @@ indexTests =
     , test "Build field graph" <|
         \_ ->
             Selector.succeed (,)
-                |> Selector.field "foo" [] (Selector.index 0 Selector.string)
-                |> Selector.field "bar" [] (Selector.index 0 Selector.string)
+                $> Selector.field "foo" [] (Selector.index 0 Selector.string)
+                $> Selector.field "bar" [] (Selector.index 0 Selector.string)
                 |> Selector.render
                 |> Expect.equal "foo bar"
     , test "Build field nested graph" <|
         \_ ->
             Selector.succeed (,)
-                |> Selector.field "foo" [] (Selector.index 0 Selector.string)
-                |> Selector.field "bar" [] (Selector.singleton "baz" [] (Selector.index 0 Selector.string))
+                $> Selector.field "foo" [] (Selector.index 0 Selector.string)
+                $> Selector.field "bar" [] (Selector.field "baz" [] (Selector.index 0 Selector.string))
                 |> Selector.render
                 |> Expect.equal "foo bar{baz}"
     ]
@@ -932,22 +928,26 @@ maybeTests =
     in
     [ test "Valid type of existing field" <|
         \_ ->
-            Selector.singleton "age" [] (Selector.maybe Selector.int)
+            Selector.maybe Selector.int
+                |> Selector.field "age" []
                 |> flip Selector.decodeString json
                 |> Expect.equal (Ok (Just 42))
     , test "Invalid type of existing field" <|
         \_ ->
-            Selector.singleton "name" [] (Selector.maybe Selector.int)
+            Selector.maybe Selector.int
+                |> Selector.field "name" []
                 |> flip Selector.decodeString json
                 |> Expect.equal (Ok Nothing)
     , test "Null type of existing field" <|
         \_ ->
-            Selector.singleton "status" [] (Selector.maybe Selector.int)
+            Selector.maybe Selector.int
+                |> Selector.field "status" []
                 |> flip Selector.decodeString json
                 |> Expect.equal (Ok Nothing)
     , test "Not existing field" <|
         \_ ->
-            Selector.singleton "height" [] (Selector.maybe Selector.int)
+            Selector.maybe Selector.int
+                |> Selector.field "height" []
                 |> flip Selector.decodeString json
                 |> Expect.equal (Err """Expecting an object with a field named `height` but instead got: {"name":"tom","age":42,"status":null}""")
     , test "Build graph" <|
@@ -957,15 +957,15 @@ maybeTests =
     , test "Build field graph" <|
         \_ ->
             Selector.succeed (,)
-                |> Selector.field "foo" [] (Selector.maybe Selector.string)
-                |> Selector.field "bar" [] (Selector.maybe Selector.string)
+                $> Selector.field "foo" [] (Selector.maybe Selector.string)
+                $> Selector.field "bar" [] (Selector.maybe Selector.string)
                 |> Selector.render
                 |> Expect.equal "foo bar"
     , test "Build field nested graph" <|
         \_ ->
             Selector.succeed (,)
-                |> Selector.field "foo" [] (Selector.maybe Selector.string)
-                |> Selector.field "bar" [] (Selector.singleton "baz" [] (Selector.maybe Selector.string))
+                $> Selector.field "foo" [] (Selector.maybe Selector.string)
+                $> Selector.field "bar" [] (Selector.field "baz" [] (Selector.maybe Selector.string))
                 |> Selector.render
                 |> Expect.equal "foo bar{baz}"
     ]
@@ -1071,7 +1071,7 @@ oneOfSingleFieldTests =
     let
         selector =
             Selector.oneOf
-                [ Selector.singleton "username" [] Selector.string
+                [ Selector.field "username" [] Selector.string
                 ]
     in
     [ test "invalid source" <|
@@ -1107,11 +1107,11 @@ oneOfMultipleFieldTests =
         selector =
             Selector.oneOf
                 [ Selector.succeed User
-                    |> Selector.field "id" [] Selector.string
-                    |> Selector.field "username" [] Selector.string
+                    $> Selector.field "id" [] Selector.string
+                    $> Selector.field "username" [] Selector.string
                 , Selector.succeed Counter
-                    |> Selector.field "id" [] Selector.string
-                    |> Selector.field "count" [] Selector.int
+                    $> Selector.field "id" [] Selector.string
+                    $> Selector.field "count" [] Selector.int
                 ]
     in
     [ test "invalid source" <|
@@ -1158,17 +1158,17 @@ oneOfNestedTests =
     let
         nestedSelector =
             Selector.succeed (,)
-                |> Selector.field "search" [] Selector.string
-                |> Selector.field "results"
+                $> Selector.field "search" [] Selector.string
+                $> Selector.field "results"
                     []
                     (Selector.list
                         (Selector.oneOf
                             [ Selector.succeed User
-                                |> Selector.field "id" [] Selector.string
-                                |> Selector.field "username" [] Selector.string
+                                $> Selector.field "id" [] Selector.string
+                                $> Selector.field "username" [] Selector.string
                             , Selector.succeed Counter
-                                |> Selector.field "id" [] Selector.string
-                                |> Selector.field "count" [] Selector.int
+                                $> Selector.field "id" [] Selector.string
+                                $> Selector.field "count" [] Selector.int
                             ]
                         )
                     )
@@ -1244,8 +1244,8 @@ mapTests =
     let
         fieldSelector =
             Selector.succeed (,)
-                |> Selector.field "foo" [] (Selector.map String.length Selector.string)
-                |> Selector.field "bar" [] (Selector.map ((+) 1) Selector.int)
+                $> Selector.field "foo" [] (Selector.map String.length Selector.string)
+                $> Selector.field "bar" [] (Selector.map ((+) 1) Selector.int)
     in
     [ test "Invalid source with direct selector" <|
         \_ ->
@@ -1288,15 +1288,15 @@ mapTests =
     , test "Build field graph" <|
         \_ ->
             Selector.succeed (,)
-                |> Selector.field "foo" [] (Selector.map String.length Selector.string)
-                |> Selector.field "bar" [] (Selector.map String.length Selector.string)
+                $> Selector.field "foo" [] (Selector.map String.length Selector.string)
+                $> Selector.field "bar" [] (Selector.map String.length Selector.string)
                 |> Selector.render
                 |> Expect.equal "foo bar"
     , test "Build field nested graph" <|
         \_ ->
             Selector.succeed (,)
-                |> Selector.field "foo" [] (Selector.map String.length Selector.string)
-                |> Selector.field "bar" [] (Selector.singleton "baz" [] (Selector.map String.length Selector.string))
+                $> Selector.field "foo" [] (Selector.map String.length Selector.string)
+                $> Selector.field "bar" [] (Selector.field "baz" [] (Selector.map String.length Selector.string))
                 |> Selector.render
                 |> Expect.equal "foo bar{baz}"
     ]
@@ -1317,15 +1317,15 @@ andThenTests =
 
         fieldSelector =
             Selector.succeed (,)
-                |> Selector.field "bar"
+                $> Selector.field "bar"
                     []
                     (Selector.andThen
                         (\bar ->
                             case bar of
                                 0 ->
                                     Selector.succeed (,)
-                                        |> Selector.field "first" [] Selector.bool
-                                        |> Selector.field "second" [] Selector.string
+                                        $> Selector.field "first" [] Selector.bool
+                                        $> Selector.field "second" [] Selector.string
 
                                 1 ->
                                     Selector.succeed ( False, "empty" )
@@ -1335,7 +1335,7 @@ andThenTests =
                         )
                         Selector.int
                     )
-                |> Selector.field "foo" [] (onlyPositive Selector.float)
+                $> Selector.field "foo" [] (onlyPositive Selector.float)
     in
     [ test "Invalid source with direct selector" <|
         \_ ->
@@ -1402,8 +1402,8 @@ andThenTests =
     , test "Build field nested graph" <|
         \_ ->
             Selector.succeed (,)
-                |> Selector.field "first" [] (Selector.map String.length Selector.string)
-                |> Selector.field "second" [] fieldSelector
+                $> Selector.field "first" [] (Selector.map String.length Selector.string)
+                $> Selector.field "second" [] fieldSelector
                 |> Selector.render
                 |> Expect.equal "first second{bar foo}"
     ]
@@ -1414,8 +1414,8 @@ succeedTests =
     let
         fieldSelector =
             Selector.succeed (,)
-                |> Selector.field "foo" [] (Selector.succeed 1)
-                |> Selector.field "bar" [] (Selector.succeed True)
+                $> Selector.field "foo" [] (Selector.succeed 1)
+                $> Selector.field "bar" [] (Selector.succeed True)
     in
     [ test "Direct selector" <|
         \_ ->
@@ -1445,8 +1445,8 @@ succeedTests =
     , test "Build field nested graph" <|
         \_ ->
             Selector.succeed (,)
-                |> Selector.field "foo" [] (Selector.succeed Nothing)
-                |> Selector.field "bar" [] (Selector.singleton "baz" [] (Selector.succeed Nothing))
+                $> Selector.field "foo" [] (Selector.succeed Nothing)
+                $> Selector.field "bar" [] (Selector.field "baz" [] (Selector.succeed Nothing))
                 |> Selector.render
                 |> Expect.equal "foo bar{baz}"
     ]
@@ -1457,8 +1457,8 @@ failTests =
     let
         fieldSelector =
             Selector.succeed (,)
-                |> Selector.field "foo" [] (Selector.fail "message foo")
-                |> Selector.field "bar" [] (Selector.fail "message bar")
+                $> Selector.field "foo" [] (Selector.fail "message foo")
+                $> Selector.field "bar" [] (Selector.fail "message bar")
     in
     [ test "Direct selector" <|
         \_ ->
@@ -1488,8 +1488,8 @@ failTests =
     , test "Build field nested graph" <|
         \_ ->
             Selector.succeed (,)
-                |> Selector.field "foo" [] (Selector.fail "message foo")
-                |> Selector.field "bar" [] (Selector.singleton "baz" [] (Selector.fail "message bar.baz"))
+                $> Selector.field "foo" [] (Selector.fail "message foo")
+                $> Selector.field "bar" [] (Selector.field "baz" [] (Selector.fail "message bar.baz"))
                 |> Selector.render
                 |> Expect.equal "foo bar{baz}"
     ]
@@ -1500,8 +1500,8 @@ nullTests =
     let
         fieldSelector =
             Selector.succeed (,)
-                |> Selector.field "foo" [] (Selector.null False)
-                |> Selector.field "bar" [] (Selector.null 1)
+                $> Selector.field "foo" [] (Selector.null False)
+                $> Selector.field "bar" [] (Selector.null 1)
     in
     [ test "Same type source with direct selector" <|
         \_ ->
@@ -1562,15 +1562,15 @@ nullTests =
     , test "Build field graph" <|
         \_ ->
             Selector.succeed (,)
-                |> Selector.field "foo" [] (Selector.keyValuePairs Selector.string)
-                |> Selector.field "bar" [] (Selector.keyValuePairs Selector.string)
+                $> Selector.field "foo" [] (Selector.keyValuePairs Selector.string)
+                $> Selector.field "bar" [] (Selector.keyValuePairs Selector.string)
                 |> Selector.render
                 |> Expect.equal "foo bar"
     , test "Build field nested graph" <|
         \_ ->
             Selector.succeed (,)
-                |> Selector.field "foo" [] (Selector.keyValuePairs Selector.string)
-                |> Selector.field "bar" [] (Selector.singleton "baz" [] (Selector.keyValuePairs Selector.string))
+                $> Selector.field "foo" [] (Selector.keyValuePairs Selector.string)
+                $> Selector.field "bar" [] (Selector.field "baz" [] (Selector.keyValuePairs Selector.string))
                 |> Selector.render
                 |> Expect.equal "foo bar{baz}"
     ]
@@ -1661,7 +1661,7 @@ onSingleFieldTests =
         selector =
             Selector.on
                 [ ( "User"
-                  , Selector.singleton "username" [] Selector.string
+                  , Selector.field "username" [] Selector.string
                   )
                 ]
     in
@@ -1699,13 +1699,13 @@ onMultipeFieldTests =
             Selector.on
                 [ ( "User"
                   , Selector.succeed User
-                        |> Selector.field "id" [] Selector.string
-                        |> Selector.field "username" [] Selector.string
+                        $> Selector.field "id" [] Selector.string
+                        $> Selector.field "username" [] Selector.string
                   )
                 , ( "Counter"
                   , Selector.succeed Counter
-                        |> Selector.field "id" [] Selector.string
-                        |> Selector.field "count" [] Selector.int
+                        $> Selector.field "id" [] Selector.string
+                        $> Selector.field "count" [] Selector.int
                   )
                 ]
     in
@@ -1753,20 +1753,20 @@ onNestedTests =
     let
         selector =
             Selector.succeed (,)
-                |> Selector.field "search" [] Selector.string
-                |> Selector.field "results"
+                $> Selector.field "search" [] Selector.string
+                $> Selector.field "results"
                     []
                     (Selector.list
                         (Selector.on
                             [ ( "User"
                               , Selector.succeed User
-                                    |> Selector.field "id" [] Selector.string
-                                    |> Selector.field "username" [] Selector.string
+                                    $> Selector.field "id" [] Selector.string
+                                    $> Selector.field "username" [] Selector.string
                               )
                             , ( "Counter"
                               , Selector.succeed Counter
-                                    |> Selector.field "id" [] Selector.string
-                                    |> Selector.field "count" [] Selector.int
+                                    $> Selector.field "id" [] Selector.string
+                                    $> Selector.field "count" [] Selector.int
                               )
                             ]
                         )

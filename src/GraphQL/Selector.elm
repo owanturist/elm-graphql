@@ -1,6 +1,7 @@
 module GraphQL.Selector
     exposing
-        ( Selector
+        ( ($>)
+        , Selector
         , Value
         , aliased
         , andThen
@@ -23,7 +24,6 @@ module GraphQL.Selector
         , on
         , oneOf
         , render
-        , singleton
         , string
         , succeed
         , toDecoder
@@ -46,7 +46,7 @@ module GraphQL.Selector
 
 # Object Primitives
 
-@docs field, aliased, index, singleton, on
+@docs ($>), field, aliased, index, on
 
 
 # Inconsistent Structure
@@ -94,7 +94,31 @@ container wrapper (Selector query decoder) =
     Selector query (wrapper decoder)
 
 
-{-| Transform a decoder. Maybe you just want to know the length of a string:
+infixl 0 $>
+
+
+{-| -}
+($>) : Selector (a -> b) -> Selector a -> Selector b
+($>) (Selector prevQuery next) (Selector nextQuery decoder) =
+    let
+        query =
+            case ( prevQuery, nextQuery ) of
+                ( Nothing, Nothing ) ->
+                    Nothing
+
+                ( Nothing, Just next ) ->
+                    Just next
+
+                ( Just prev, Nothing ) ->
+                    Just prev
+
+                ( Just prev, Just next ) ->
+                    Just (prev ++ " " ++ next)
+    in
+    Selector query (Json.map2 (|>) decoder next)
+
+
+{-| Transform a selector. Maybe you just want to know the length of a string:
 
     stringLength : Selector Int
     stringLength =
@@ -103,10 +127,10 @@ container wrapper (Selector query decoder) =
 It is often helpful to use `map` with `oneOf`, like when defining `nullable`:
 
     nullable : Selector a -> Selector (Maybe a)
-    nullable decoder =
+    nullable selector =
         oneOf
             [ null Nothing
-            , map Just decoder
+            , map Just selector
             ]
 
 -}
@@ -115,7 +139,7 @@ map fn (Selector query decoder) =
     Selector query (Json.map fn decoder)
 
 
-{-| Create decoders that depend on previous results.
+{-| Create a selector that depend on previous results.
 Doesn't create depended Selector.
 -}
 andThen : (a -> Selector b) -> Selector a -> Selector b
@@ -193,7 +217,7 @@ succeed =
     primitive << Json.succeed
 
 
-{-| Ignore the JSON and make the decoder fail. This is handy when used with
+{-| Ignore the JSON and make the selector fail. This is handy when used with
 `oneOf` or `andThen` where you want to give a custom error message in some
 case.
 
@@ -306,9 +330,9 @@ index i =
 
     json = """{ "name": "tom", "age": 42 }"""
 
-    decodeString (succeed identity |> field "age" [] (maybe int)) json    == Ok (Just 42)
-    decodeString (succeed identity |> field "name" [] (maybe int)) json   == Ok Nothing
-    decodeString (succeed identity |> field "height" [] (maybe int)) json == Err ...
+    decodeString (field "age" [] (maybe int)) json    == Ok (Just 42)
+    decodeString (field "name" [] (maybe int)) json   == Ok Nothing
+    decodeString (field "height" [] (maybe int)) json == Err ...
 
 Notice the last example!
 It is saying we must have a field named `height` and the content may be a float.
@@ -323,17 +347,9 @@ maybe =
     container Json.maybe
 
 
-select : Maybe String -> String -> List ( String, Argument ) -> Selector a -> Selector (a -> b) -> Selector b
-select alias name arguments (Selector childQuery decoder) (Selector prevQuery next) =
+select : Maybe String -> String -> List ( String, Argument ) -> Selector a -> Selector a
+select alias name arguments (Selector childQuery decoder) =
     let
-        prev =
-            case prevQuery of
-                Nothing ->
-                    ""
-
-                Just query ->
-                    query ++ " "
-
         fieldOrAlias =
             case alias of
                 Nothing ->
@@ -351,40 +367,22 @@ select alias name arguments (Selector childQuery decoder) (Selector prevQuery ne
             childQuery
                 |> Maybe.map (Internal.wrap "{" "}")
                 |> Maybe.withDefault ""
-
-        fieldDecoder =
-            Json.field (Maybe.withDefault name alias) decoder
     in
     Selector
-        (Just (prev ++ fieldOrAlias ++ args ++ child))
-        (Json.map2 (|>) fieldDecoder next)
+        (Just (fieldOrAlias ++ args ++ child))
+        (Json.field (Maybe.withDefault name alias) decoder)
 
 
 {-| -}
-field : String -> List ( String, Argument ) -> Selector a -> Selector (a -> b) -> Selector b
+field : String -> List ( String, Argument ) -> Selector a -> Selector a
 field =
     select Nothing
 
 
 {-| -}
-aliased : String -> String -> List ( String, Argument ) -> Selector a -> Selector (a -> b) -> Selector b
+aliased : String -> String -> List ( String, Argument ) -> Selector a -> Selector a
 aliased =
     select << Just
-
-
-{-| Version of `field` for selection single field.
-
-    singleton "id" [] string
-
-    -- equals to
-
-    succeed identity
-        |> field "id" [] string
-
--}
-singleton : String -> List ( String, Argument ) -> Selector a -> Selector a
-singleton name arguments selector =
-    field name arguments selector (succeed identity)
 
 
 {-| -}
@@ -404,7 +402,7 @@ on selectors =
     Selector (Just (String.join " " queries)) (Json.oneOf decoders)
 
 
-{-| Try a bunch of different decoders. This can be useful if the JSON may come
+{-| Try a bunch of different selectors. This can be useful if the JSON may come
 in a couple different formats. For example, say you want to read an array of
 numbers, but some of them are `null`.
 
@@ -443,14 +441,14 @@ oneOf selectors =
     Selector query (Json.oneOf decoders)
 
 
-{-| Render GraphQL representation from a Selector.
+{-| Render GraphQL representation of Selector.
 -}
 render : Selector a -> String
 render (Selector query _) =
     Maybe.withDefault "" query
 
 
-{-| Build a Decoder from a Selector.
+{-| Build a Decoder of Selector.
 -}
 toDecoder : Selector a -> Decoder a
 toDecoder (Selector _ decoder) =
