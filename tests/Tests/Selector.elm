@@ -110,88 +110,78 @@ structureTests =
     , test "Aliased graph" <|
         \_ ->
             Selector.succeed identity
-                |> Selector.aliased "foo" (Selector.field "bar" [] Selector.string)
+                |> Selector.aliased "foo" "bar" [] Selector.string
                 |> Selector.render
                 |> Expect.equal "foo:bar"
     , test "Aliased argumented graph" <|
         \_ ->
             Selector.succeed identity
                 |> Selector.aliased "foo"
-                    (Selector.field "bar"
-                        [ ( "baz", Argument.int 0 )
-                        ]
-                        Selector.string
-                    )
+                    "bar"
+                    [ ( "baz", Argument.int 0 )
+                    ]
+                    Selector.string
                 |> Selector.render
                 |> Expect.equal "foo:bar(baz:0)"
     , test "Full graph" <|
         \_ ->
             Selector.succeed (,,)
                 |> Selector.aliased "bar"
-                    (Selector.field "bar_zero"
-                        [ ( "str", Argument.string "zero" )
-                        , ( "int", Argument.int 0 )
-                        ]
-                        Selector.string
-                    )
+                    "bar_zero"
+                    [ ( "str", Argument.string "zero" )
+                    , ( "int", Argument.int 0 )
+                    ]
+                    Selector.string
                 |> Selector.aliased "foo"
-                    (Selector.field "foo_zero"
-                        [ ( "str", Argument.string "zero" )
-                        , ( "int", Argument.int 0 )
-                        ]
-                        (Selector.succeed (,,)
-                            |> Selector.aliased "bar1"
-                                (Selector.field "bar_first"
-                                    [ ( "str", Argument.string "first" )
-                                    , ( "int", Argument.int 1 )
+                    "foo_zero"
+                    [ ( "str", Argument.string "zero" )
+                    , ( "int", Argument.int 0 )
+                    ]
+                    (Selector.succeed (,,)
+                        |> Selector.aliased "bar1"
+                            "bar_first"
+                            [ ( "str", Argument.string "first" )
+                            , ( "int", Argument.int 1 )
+                            ]
+                            Selector.string
+                        |> Selector.aliased "foo1"
+                            "foo_first"
+                            [ ( "str", Argument.string "first" )
+                            , ( "int", Argument.int 1 )
+                            ]
+                            (Selector.succeed (,,)
+                                |> Selector.aliased "bar2"
+                                    "bar_second"
+                                    [ ( "str", Argument.string "second" )
+                                    , ( "int", Argument.int 2 )
                                     ]
                                     Selector.string
-                                )
-                            |> Selector.aliased "foo1"
-                                (Selector.field "foo_first"
-                                    [ ( "str", Argument.string "first" )
-                                    , ( "int", Argument.int 1 )
-                                    ]
-                                    (Selector.succeed (,,)
-                                        |> Selector.aliased "bar2"
-                                            (Selector.field "bar_second"
-                                                [ ( "str", Argument.string "second" )
-                                                , ( "int", Argument.int 2 )
-                                                ]
-                                                Selector.string
-                                            )
-                                        |> Selector.aliased "foo2"
-                                            (Selector.field "foo_second"
-                                                [ ( "str", Argument.string "second" )
-                                                , ( "int", Argument.int 2 )
-                                                ]
-                                                Selector.string
-                                            )
-                                        |> Selector.aliased "baz2"
-                                            (Selector.field "baz_second"
-                                                [ ( "str", Argument.string "second" )
-                                                , ( "int", Argument.int 2 )
-                                                ]
-                                                Selector.string
-                                            )
-                                    )
-                                )
-                            |> Selector.aliased "baz1"
-                                (Selector.field "baz_first"
-                                    [ ( "str", Argument.string "first" )
-                                    , ( "int", Argument.int 1 )
+                                |> Selector.aliased "foo2"
+                                    "foo_second"
+                                    [ ( "str", Argument.string "second" )
+                                    , ( "int", Argument.int 2 )
                                     ]
                                     Selector.string
-                                )
-                        )
+                                |> Selector.aliased "baz2"
+                                    "baz_second"
+                                    [ ( "str", Argument.string "second" )
+                                    , ( "int", Argument.int 2 )
+                                    ]
+                                    Selector.string
+                            )
+                        |> Selector.aliased "baz1"
+                            "baz_first"
+                            [ ( "str", Argument.string "first" )
+                            , ( "int", Argument.int 1 )
+                            ]
+                            Selector.string
                     )
                 |> Selector.aliased "baz"
-                    (Selector.field "baz_zero"
-                        [ ( "str", Argument.string "zero" )
-                        , ( "int", Argument.int 0 )
-                        ]
-                        Selector.string
-                    )
+                    "baz_zero"
+                    [ ( "str", Argument.string "zero" )
+                    , ( "int", Argument.int 0 )
+                    ]
+                    Selector.string
                 |> Selector.render
                 |> Expect.equal """bar:bar_zero(str:"zero",int:0) foo:foo_zero(str:"zero",int:0){bar1:bar_first(str:"first",int:1) foo1:foo_first(str:"first",int:1){bar2:bar_second(str:"second",int:2) foo2:foo_second(str:"second",int:2) baz2:baz_second(str:"second",int:2)} baz1:baz_first(str:"first",int:1)} baz:baz_zero(str:"zero",int:0)"""
     ]
@@ -202,11 +192,8 @@ stringTests =
     let
         fieldSelector =
             Selector.succeed (,)
-                |> Debug.log "-------- 0"
                 |> Selector.field "foo" [] Selector.string
-                |> Debug.log "-------- 1"
                 |> Selector.field "bar" [] Selector.string
-                |> Debug.log "-------- 2"
     in
     [ test "Invalid source with direct selector" <|
         \_ ->

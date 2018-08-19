@@ -218,9 +218,9 @@ keyValuePairs selector =
 
 select : Maybe String -> String -> List ( String, Argument ) -> Selector a -> Selector (a -> b) -> Selector b
 select alias name arguments selector next =
-    (\name ->
+    (\fieldName ->
         Json.map2 (|>)
-            (Json.field name (toDecoder selector))
+            (Json.field fieldName (toDecoder selector))
             (toDecoder next)
             |> Selector (getGraph selector)
     )
@@ -234,14 +234,9 @@ field =
 
 
 {-| -}
-aliased : String -> (Selector (a -> b) -> Selector b) -> Selector (a -> b) -> Selector b
-aliased alias callSelector next =
-    case callSelector next of
-        Field _ name arguments prev selector ->
-            Field (Just alias) name arguments prev selector
-
-        selector ->
-            selector
+aliased : String -> String -> List ( String, Argument ) -> Selector a -> Selector (a -> b) -> Selector b
+aliased =
+    select << Just
 
 
 {-| Version of `field` for selection single field.
