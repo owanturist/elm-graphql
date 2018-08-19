@@ -42,8 +42,7 @@ structureTests =
                 |> Expect.equal ""
     , test "Single graph" <|
         \_ ->
-            Selector.succeed identity
-                |> Selector.field "bar" [] Selector.string
+            Selector.singleton "bar" [] Selector.string
                 |> Selector.render
                 |> Expect.equal "bar"
     , test "Multiple graph" <|
@@ -56,16 +55,12 @@ structureTests =
                 |> Expect.equal "bar foo baz"
     , test "Nested graph" <|
         \_ ->
-            Selector.succeed identity
-                |> Selector.field "bar"
+            Selector.singleton "bar"
+                []
+                (Selector.singleton "foo"
                     []
-                    (Selector.succeed identity
-                        |> Selector.field "foo"
-                            []
-                            (Selector.succeed identity
-                                |> Selector.field "baz" [] Selector.string
-                            )
-                    )
+                    (Selector.singleton "baz" [] Selector.string)
+                )
                 |> Selector.render
                 |> Expect.equal "bar{foo{baz}}"
     , test "Nested multiple graph" <|
@@ -90,25 +85,22 @@ structureTests =
                 |> Expect.equal "bar foo{bar1 foo1{bar2 foo2 baz2} baz1} baz"
     , test "Argumented graph" <|
         \_ ->
-            Selector.succeed identity
-                |> Selector.field "bar"
-                    [ ( "foo", Argument.string "baz" )
-                    ]
-                    Selector.string
+            Selector.singleton "bar"
+                [ ( "foo", Argument.string "baz" )
+                ]
+                Selector.string
                 |> Selector.render
                 |> Expect.equal """bar(foo:"baz")"""
     , test "Nested argumented graph" <|
         \_ ->
-            Selector.succeed identity
-                |> Selector.field "bar"
-                    [ ( "foo", Argument.string "baz" )
+            Selector.singleton "bar"
+                [ ( "foo", Argument.string "baz" )
+                ]
+                (Selector.singleton "bar1"
+                    [ ( "foo1", Argument.string "baz1" )
                     ]
-                    (Selector.succeed identity
-                        |> Selector.field "bar1"
-                            [ ( "foo1", Argument.string "baz1" )
-                            ]
-                            Selector.string
-                    )
+                    Selector.string
+                )
                 |> Selector.render
                 |> Expect.equal """bar(foo:"baz"){bar1(foo1:"baz1")}"""
     , test "Aliased graph" <|
@@ -498,12 +490,7 @@ nullableTests =
         \_ ->
             Selector.succeed (,)
                 |> Selector.field "foo" [] (Selector.nullable Selector.string)
-                |> Selector.field "bar"
-                    []
-                    (Selector.succeed identity
-                        |> Selector.field "baz" [] Selector.string
-                        |> Selector.nullable
-                    )
+                |> Selector.field "bar" [] (Selector.singleton "baz" [] (Selector.nullable Selector.string))
                 |> Selector.render
                 |> Expect.equal "foo bar{baz}"
     ]
@@ -573,12 +560,7 @@ listTests =
         \_ ->
             Selector.succeed (,)
                 |> Selector.field "foo" [] (Selector.list Selector.string)
-                |> Selector.field "bar"
-                    []
-                    (Selector.succeed identity
-                        |> Selector.field "baz" [] Selector.string
-                        |> Selector.list
-                    )
+                |> Selector.field "bar" [] (Selector.singleton "baz" [] (Selector.list Selector.string))
                 |> Selector.render
                 |> Expect.equal "foo bar{baz}"
     ]
@@ -653,12 +635,7 @@ arrayTests =
         \_ ->
             Selector.succeed (,)
                 |> Selector.field "foo" [] (Selector.array Selector.string)
-                |> Selector.field "bar"
-                    []
-                    (Selector.succeed identity
-                        |> Selector.field "baz" [] Selector.string
-                        |> Selector.array
-                    )
+                |> Selector.field "bar" [] (Selector.singleton "baz" [] (Selector.array Selector.string))
                 |> Selector.render
                 |> Expect.equal "foo bar{baz}"
     ]
@@ -761,12 +738,7 @@ dictTests =
         \_ ->
             Selector.succeed (,)
                 |> Selector.field "foo" [] (Selector.dict Selector.string)
-                |> Selector.field "bar"
-                    []
-                    (Selector.succeed identity
-                        |> Selector.field "baz" [] Selector.string
-                        |> Selector.dict
-                    )
+                |> Selector.field "bar" [] (Selector.singleton "baz" [] (Selector.dict Selector.string))
                 |> Selector.render
                 |> Expect.equal "foo bar{baz}"
     ]
@@ -866,12 +838,7 @@ keyValuePairsTests =
         \_ ->
             Selector.succeed (,)
                 |> Selector.field "foo" [] (Selector.keyValuePairs Selector.string)
-                |> Selector.field "bar"
-                    []
-                    (Selector.succeed identity
-                        |> Selector.field "baz" [] Selector.string
-                        |> Selector.keyValuePairs
-                    )
+                |> Selector.field "bar" [] (Selector.singleton "baz" [] (Selector.keyValuePairs Selector.string))
                 |> Selector.render
                 |> Expect.equal "foo bar{baz}"
     ]
@@ -945,12 +912,7 @@ indexTests =
         \_ ->
             Selector.succeed (,)
                 |> Selector.field "foo" [] (Selector.index 0 Selector.string)
-                |> Selector.field "bar"
-                    []
-                    (Selector.succeed identity
-                        |> Selector.field "baz" [] Selector.string
-                        |> Selector.index 0
-                    )
+                |> Selector.field "bar" [] (Selector.singleton "baz" [] (Selector.index 0 Selector.string))
                 |> Selector.render
                 |> Expect.equal "foo bar{baz}"
     ]
@@ -970,26 +932,22 @@ maybeTests =
     in
     [ test "Valid type of existing field" <|
         \_ ->
-            Selector.succeed identity
-                |> Selector.field "age" [] (Selector.maybe Selector.int)
+            Selector.singleton "age" [] (Selector.maybe Selector.int)
                 |> flip Selector.decodeString json
                 |> Expect.equal (Ok (Just 42))
     , test "Invalid type of existing field" <|
         \_ ->
-            Selector.succeed identity
-                |> Selector.field "name" [] (Selector.maybe Selector.int)
+            Selector.singleton "name" [] (Selector.maybe Selector.int)
                 |> flip Selector.decodeString json
                 |> Expect.equal (Ok Nothing)
     , test "Null type of existing field" <|
         \_ ->
-            Selector.succeed identity
-                |> Selector.field "status" [] (Selector.maybe Selector.int)
+            Selector.singleton "status" [] (Selector.maybe Selector.int)
                 |> flip Selector.decodeString json
                 |> Expect.equal (Ok Nothing)
     , test "Not existing field" <|
         \_ ->
-            Selector.succeed identity
-                |> Selector.field "height" [] (Selector.maybe Selector.int)
+            Selector.singleton "height" [] (Selector.maybe Selector.int)
                 |> flip Selector.decodeString json
                 |> Expect.equal (Err """Expecting an object with a field named `height` but instead got: {"name":"tom","age":42,"status":null}""")
     , test "Build graph" <|
@@ -1007,12 +965,7 @@ maybeTests =
         \_ ->
             Selector.succeed (,)
                 |> Selector.field "foo" [] (Selector.maybe Selector.string)
-                |> Selector.field "bar"
-                    []
-                    (Selector.succeed identity
-                        |> Selector.field "baz" [] Selector.string
-                        |> Selector.maybe
-                    )
+                |> Selector.field "bar" [] (Selector.singleton "baz" [] (Selector.maybe Selector.string))
                 |> Selector.render
                 |> Expect.equal "foo bar{baz}"
     ]
@@ -1343,11 +1296,7 @@ mapTests =
         \_ ->
             Selector.succeed (,)
                 |> Selector.field "foo" [] (Selector.map String.length Selector.string)
-                |> Selector.field "bar"
-                    []
-                    (Selector.succeed identity
-                        |> Selector.field "baz" [] (Selector.map String.length Selector.string)
-                    )
+                |> Selector.field "bar" [] (Selector.singleton "baz" [] (Selector.map String.length Selector.string))
                 |> Selector.render
                 |> Expect.equal "foo bar{baz}"
     ]
@@ -1497,11 +1446,7 @@ succeedTests =
         \_ ->
             Selector.succeed (,)
                 |> Selector.field "foo" [] (Selector.succeed Nothing)
-                |> Selector.field "bar"
-                    []
-                    (Selector.succeed identity
-                        |> Selector.field "baz" [] (Selector.succeed Nothing)
-                    )
+                |> Selector.field "bar" [] (Selector.singleton "baz" [] (Selector.succeed Nothing))
                 |> Selector.render
                 |> Expect.equal "foo bar{baz}"
     ]
@@ -1544,11 +1489,7 @@ failTests =
         \_ ->
             Selector.succeed (,)
                 |> Selector.field "foo" [] (Selector.fail "message foo")
-                |> Selector.field "bar"
-                    []
-                    (Selector.succeed identity
-                        |> Selector.field "baz" [] (Selector.fail "message bar.baz")
-                    )
+                |> Selector.field "bar" [] (Selector.singleton "baz" [] (Selector.fail "message bar.baz"))
                 |> Selector.render
                 |> Expect.equal "foo bar{baz}"
     ]
@@ -1629,12 +1570,7 @@ nullTests =
         \_ ->
             Selector.succeed (,)
                 |> Selector.field "foo" [] (Selector.keyValuePairs Selector.string)
-                |> Selector.field "bar"
-                    []
-                    (Selector.succeed identity
-                        |> Selector.field "baz" [] Selector.string
-                        |> Selector.keyValuePairs
-                    )
+                |> Selector.field "bar" [] (Selector.singleton "baz" [] (Selector.keyValuePairs Selector.string))
                 |> Selector.render
                 |> Expect.equal "foo bar{baz}"
     ]
