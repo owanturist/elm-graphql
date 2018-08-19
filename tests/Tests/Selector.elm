@@ -1076,8 +1076,8 @@ oneOfMultipleNonFieldTests =
     let
         selector =
             Selector.oneOf
-                [ Selector.map User Selector.string
-                , Selector.map Counter Selector.int
+                [ Selector.map (User "user-id") Selector.string
+                , Selector.map (Counter "counter-id") Selector.int
                 ]
     in
     [ test "invalid source" <|
@@ -1095,17 +1095,17 @@ oneOfMultipleNonFieldTests =
     , test "valid `User` source" <|
         \_ ->
             """
-            "identificator"
+            "Bob"
             """
                 |> Selector.decodeString selector
-                |> Expect.equal (Ok (User "identificator"))
+                |> Expect.equal (Ok (User "user-id" "Bob"))
     , test "valid `Counter` source" <|
         \_ ->
             """
             2
             """
                 |> Selector.decodeString selector
-                |> Expect.equal (Ok (Counter 2))
+                |> Expect.equal (Ok (Counter "counter-id" 2))
     , test "graph" <|
         \_ ->
             Selector.render selector
@@ -1154,8 +1154,10 @@ oneOfMultipleFieldTests =
         selector =
             Selector.oneOf
                 [ Selector.succeed User
+                    |> Selector.field "id" [] Selector.string
                     |> Selector.field "username" [] Selector.string
                 , Selector.succeed Counter
+                    |> Selector.field "id" [] Selector.string
                     |> Selector.field "count" [] Selector.int
                 ]
     in
@@ -1175,24 +1177,26 @@ oneOfMultipleFieldTests =
         \_ ->
             """
             {
+                "id": "user-id",
                 "username": "Bob"
             }
             """
                 |> Selector.decodeString selector
-                |> Expect.equal (Ok (User "Bob"))
+                |> Expect.equal (Ok (User "user-id" "Bob"))
     , test "valid `Counter` source" <|
         \_ ->
             """
             {
+                "id": "counter-id",
                 "count": 5
             }
             """
                 |> Selector.decodeString selector
-                |> Expect.equal (Ok (Counter 5))
+                |> Expect.equal (Ok (Counter "counter-id" 5))
     , test "graph" <|
         \_ ->
             Selector.render selector
-                |> Expect.equal "username count"
+                |> Expect.equal "id username id count"
     ]
 
 
@@ -1206,12 +1210,12 @@ oneOfNestedTests =
                     []
                     (Selector.list
                         (Selector.oneOf
-                            [ Selector.succeed (,)
-                                |> Selector.field "username" [] (Selector.map User Selector.string)
+                            [ Selector.succeed User
                                 |> Selector.field "id" [] Selector.string
-                            , Selector.succeed (,)
-                                |> Selector.field "count" [] (Selector.map Counter Selector.int)
+                                |> Selector.field "username" [] Selector.string
+                            , Selector.succeed Counter
                                 |> Selector.field "id" [] Selector.string
+                                |> Selector.field "count" [] Selector.int
                             ]
                         )
                     )
@@ -1240,15 +1244,15 @@ oneOfNestedTests =
                 "search": "bar",
                 "results": [
                     {
-                        "id": "identificator1",
+                        "id": "user-id-1",
                         "username": "Bob"
                     },
                     {
-                        "id": "identificator2",
+                        "id": "counter-id",
                         "count": 5
                     },
                     {
-                        "id": "identificator3",
+                        "id": "user-id-2",
                         "username": "Tom"
                     }
                 ]
@@ -1258,16 +1262,16 @@ oneOfNestedTests =
                 |> Expect.equal
                     (Ok
                         ( "bar"
-                        , [ ( User "Bob", "identificator1" )
-                          , ( Counter 5, "identificator2" )
-                          , ( User "Tom", "identificator3" )
+                        , [ User "user-id-1" "Bob"
+                          , Counter "counter-id" 5
+                          , User "user-id-2" "Tom"
                           ]
                         )
                     )
     , test "graph" <|
         \_ ->
             Selector.render nestedSelector
-                |> Expect.equal "search results{username id count id}"
+                |> Expect.equal "search results{id username id count}"
     ]
 
 
@@ -1637,8 +1641,8 @@ nullTests =
 
 
 type SearchResult
-    = User String
-    | Counter Int
+    = User String String
+    | Counter String Int
 
 
 onSingleEmptyTests : List Test
@@ -1692,8 +1696,8 @@ onMultipleNonFieldTests =
     let
         selector =
             Selector.on
-                [ ( "User", Selector.map User Selector.string )
-                , ( "Counter", Selector.map Counter Selector.int )
+                [ ( "User", Selector.map (User "user-id") Selector.string )
+                , ( "Counter", Selector.map (Counter "counter-id") Selector.int )
                 ]
     in
     [ test "valid source" <|
@@ -1759,10 +1763,12 @@ onMultipeFieldTests =
             Selector.on
                 [ ( "User"
                   , Selector.succeed User
+                        |> Selector.field "id" [] Selector.string
                         |> Selector.field "username" [] Selector.string
                   )
                 , ( "Counter"
                   , Selector.succeed Counter
+                        |> Selector.field "id" [] Selector.string
                         |> Selector.field "count" [] Selector.int
                   )
                 ]
@@ -1783,24 +1789,26 @@ onMultipeFieldTests =
         \_ ->
             """
             {
+                "id": "user-id",
                 "username": "Bob"
             }
             """
                 |> Selector.decodeString selector
-                |> Expect.equal (Ok (User "Bob"))
+                |> Expect.equal (Ok (User "user-id" "Bob"))
     , test "valid Counter" <|
         \_ ->
             """
             {
+                "id": "counter-id",
                 "count": 5
             }
             """
                 |> Selector.decodeString selector
-                |> Expect.equal (Ok (Counter 5))
+                |> Expect.equal (Ok (Counter "counter-id" 5))
     , test "graph" <|
         \_ ->
             Selector.render selector
-                |> Expect.equal "...on User{username} ...on Counter{count}"
+                |> Expect.equal "...on User{id username} ...on Counter{id count}"
     ]
 
 
@@ -1816,10 +1824,12 @@ onNestedTests =
                         (Selector.on
                             [ ( "User"
                               , Selector.succeed User
+                                    |> Selector.field "id" [] Selector.string
                                     |> Selector.field "username" [] Selector.string
                               )
                             , ( "Counter"
                               , Selector.succeed Counter
+                                    |> Selector.field "id" [] Selector.string
                                     |> Selector.field "count" [] Selector.int
                               )
                             ]
@@ -1850,15 +1860,15 @@ onNestedTests =
                 "search": "bar",
                 "results": [
                     {
-                        "id": "identificator1",
+                        "id": "user-id-1",
                         "username": "Bob"
                     },
                     {
-                        "id": "identificator2",
+                        "id": "counter-id",
                         "count": 5
                     },
                     {
-                        "id": "identificator3",
+                        "id": "user-id-2",
                         "username": "Tom"
                     }
                 ]
@@ -1868,16 +1878,16 @@ onNestedTests =
                 |> Expect.equal
                     (Ok
                         ( "bar"
-                        , [ User "Bob"
-                          , Counter 5
-                          , User "Tom"
+                        , [ User "user-id-1" "Bob"
+                          , Counter "counter-id" 5
+                          , User "user-id-2" "Tom"
                           ]
                         )
                     )
     , test "graph" <|
         \_ ->
             Selector.render selector
-                |> Expect.equal "search results{...on User{username} ...on Counter{count}}"
+                |> Expect.equal "search results{...on User{id username} ...on Counter{id count}}"
     ]
 
 
