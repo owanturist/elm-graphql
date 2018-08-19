@@ -20,7 +20,6 @@ module GraphQL.Selector
         , maybe
         , null
         , nullable
-        , on
         , oneOf
         , render
         , singleton
@@ -46,7 +45,7 @@ module GraphQL.Selector
 
 # Object Primitives
 
-@docs field, aliased, index, singleton, on
+@docs field, aliased, index, singleton
 
 
 # Inconsistent Structure
@@ -76,6 +75,7 @@ import Json.Decode as Json exposing (Decoder)
 -}
 type Selector a
     = Selector (Maybe String) (Decoder a)
+    | Field (Maybe String) String (List ( String, Argument )) (Maybe String) (String -> Selector a)
 
 
 {-| Decode a JSON string into an Elm `String`.
@@ -143,8 +143,13 @@ float =
 
 -}
 nullable : Selector a -> Selector (Maybe a)
-nullable (Selector query decoder) =
-    Selector query (Json.nullable decoder)
+nullable selector =
+    case selector of
+        Selector graph decoder ->
+            Selector graph (Json.nullable decoder)
+
+        Field alias name arguments prev callSelector ->
+            Field alias name arguments prev (nullable << callSelector)
 
 
 {-| Decode a JSON array into an Elm `List`.
@@ -154,8 +159,13 @@ nullable (Selector query decoder) =
 
 -}
 list : Selector a -> Selector (List a)
-list (Selector query decoder) =
-    Selector query (Json.list decoder)
+list selector =
+    case selector of
+        Selector graph decoder ->
+            Selector graph (Json.list decoder)
+
+        Field alias name arguments prev callSelector ->
+            Field alias name arguments prev (list << callSelector)
 
 
 {-| Decode a JSON array into an Elm `Array`.
@@ -165,8 +175,13 @@ list (Selector query decoder) =
 
 -}
 array : Selector a -> Selector (Array a)
-array (Selector query decoder) =
-    Selector query (Json.array decoder)
+array selector =
+    case selector of
+        Selector graph decoder ->
+            Selector graph (Json.array decoder)
+
+        Field alias name arguments prev callSelector ->
+            Field alias name arguments prev (array << callSelector)
 
 
 {-| Decode a JSON object into an Elm `Dict`.
@@ -176,8 +191,13 @@ array (Selector query decoder) =
 
 -}
 dict : Selector a -> Selector (Dict String a)
-dict (Selector query decoder) =
-    Selector query (Json.dict decoder)
+dict selector =
+    case selector of
+        Selector graph decoder ->
+            Selector graph (Json.dict decoder)
+
+        Field alias name arguments prev callSelector ->
+            Field alias name arguments prev (dict << callSelector)
 
 
 {-| Decode a JSON object into an Elm `List` of pairs.
@@ -187,49 +207,24 @@ dict (Selector query decoder) =
 
 -}
 keyValuePairs : Selector a -> Selector (List ( String, a ))
-keyValuePairs (Selector query decoder) =
-    Selector query (Json.keyValuePairs decoder)
+keyValuePairs selector =
+    case selector of
+        Selector graph decoder ->
+            Selector graph (Json.keyValuePairs decoder)
+
+        Field alias name arguments prev callSelector ->
+            Field alias name arguments prev (keyValuePairs << callSelector)
 
 
 select : Maybe String -> String -> List ( String, Argument ) -> Selector a -> Selector (a -> b) -> Selector b
-select alias name arguments (Selector query1 decoder) (Selector query2 next) =
-    let
-        fieldDecoder =
-            Json.field (Maybe.withDefault name alias) decoder
-
-        fieldOrAlias =
-            case alias of
-                Nothing ->
-                    name
-
-                Just alias ->
-                    alias ++ ":" ++ name
-
-        args =
-            case Internal.renderPairsOfArguments arguments of
-                Nothing ->
-                    ""
-
-                Just args ->
-                    Internal.wrap "(" ")" args
-
-        prev =
-            case query2 of
-                Nothing ->
-                    ""
-
-                Just query ->
-                    query ++ " "
-
-        nested =
-            case query1 of
-                Nothing ->
-                    ""
-
-                Just query ->
-                    Internal.wrap "{" "}" query
-    in
-    Selector (Just (prev ++ fieldOrAlias ++ args ++ nested)) (Json.map2 (|>) fieldDecoder next)
+select alias name arguments selector next =
+    (\name ->
+        Json.map2 (|>)
+            (Json.field name (toDecoder selector))
+            (toDecoder next)
+            |> Selector (getGraph selector)
+    )
+        |> Field alias name arguments (getGraph next)
 
 
 {-| -}
@@ -239,9 +234,14 @@ field =
 
 
 {-| -}
-aliased : String -> String -> List ( String, Argument ) -> Selector a -> Selector (a -> b) -> Selector b
-aliased =
-    select << Just
+aliased : String -> (Selector (a -> b) -> Selector b) -> Selector (a -> b) -> Selector b
+aliased alias callSelector next =
+    case callSelector next of
+        Field _ name arguments prev selector ->
+            Field (Just alias) name arguments prev selector
+
+        selector ->
+            selector
 
 
 {-| Version of `field` for selection single field.
@@ -259,42 +259,6 @@ singleton name arguments selector =
     field name arguments selector (succeed identity)
 
 
-{-| -}
-on : List ( String, Selector a ) -> Selector (a -> b) -> Selector b
-on selectors (Selector parentQuery next) =
-    let
-        ( queries, decoders ) =
-            List.foldr
-                (\( entity, Selector query decoder ) (( queries, decoders ) as acc) ->
-                    case query of
-                        Nothing ->
-                            acc
-
-                        Just query ->
-                            ( ("...on " ++ entity ++ Internal.wrap "{" "}" query) :: queries
-                            , decoder :: decoders
-                            )
-                )
-                ( [], [] )
-                selectors
-
-        query =
-            case ( queries, parentQuery ) of
-                ( [], Nothing ) ->
-                    Nothing
-
-                ( [], Just prev ) ->
-                    Just prev
-
-                ( children, Nothing ) ->
-                    Just (String.join " " children)
-
-                ( children, Just prev ) ->
-                    Just (prev ++ " " ++ String.join " " children)
-    in
-    Selector query (Json.map2 (|>) (Json.oneOf decoders) next)
-
-
 {-| Decode a JSON array, requiring a particular index.
 
     json = """[ "alice", "bob", "chuck" ]"""
@@ -306,8 +270,13 @@ on selectors (Selector parentQuery next) =
 
 -}
 index : Int -> Selector a -> Selector a
-index i (Selector query decoder) =
-    Selector query (Json.index i decoder)
+index i selector =
+    case selector of
+        Selector graph decoder ->
+            Selector graph (Json.index i decoder)
+
+        Field alias name arguments prev callSelector ->
+            Field alias name arguments prev (index i << callSelector)
 
 
 {-| Helpful for dealing with optional fields. Here are a few slightly different examples:
@@ -327,8 +296,13 @@ For optional fields, this means you probably want it outside a use of `field` or
 
 -}
 maybe : Selector a -> Selector (Maybe a)
-maybe (Selector query decoder) =
-    Selector query (Json.maybe decoder)
+maybe selector =
+    case selector of
+        Selector graph decoder ->
+            Selector graph (Json.maybe decoder)
+
+        Field alias name arguments prev callSelector ->
+            Field alias name arguments prev (maybe << callSelector)
 
 
 {-| Try a bunch of different decoders. This can be useful if the JSON may come
@@ -356,10 +330,10 @@ oneOf selectors =
     let
         ( queries, decoders ) =
             selectors
-                |> List.map (\(Selector query decoder) -> ( query, decoder ))
+                |> List.map (\selector -> ( getGraph selector, toDecoder selector ))
                 |> List.unzip
 
-        query =
+        graph =
             case List.filterMap identity queries of
                 [] ->
                     Nothing
@@ -367,7 +341,7 @@ oneOf selectors =
                 many ->
                     Just (String.join " " many)
     in
-    Selector query (Json.oneOf decoders)
+    Selector graph (Json.oneOf decoders)
 
 
 {-| A JSON value.
@@ -379,15 +353,59 @@ type alias Value =
 {-| Render GraphQL representation from a Selector.
 -}
 render : Selector a -> String
-render (Selector query _) =
-    Maybe.withDefault "" query
+render =
+    Maybe.withDefault "" << getGraph
+
+
+getGraph : Selector a -> Maybe String
+getGraph selector =
+    case selector of
+        Selector query _ ->
+            query
+
+        Field alias name arguments prev selector ->
+            let
+                fieldOrAlias =
+                    case alias of
+                        Nothing ->
+                            name
+
+                        Just alias ->
+                            alias ++ ":" ++ name
+
+                args =
+                    Internal.renderPairsOfArguments arguments
+                        |> Maybe.map (Internal.wrap "(" ")")
+                        |> Maybe.withDefault ""
+
+                nested =
+                    Maybe.withDefault name alias
+                        |> selector
+                        |> getGraph
+                        |> Maybe.map (Internal.wrap "{" "}")
+                        |> Maybe.withDefault ""
+
+                prevGraph =
+                    case prev of
+                        Nothing ->
+                            ""
+
+                        Just graph ->
+                            graph ++ " "
+            in
+            Just (prevGraph ++ fieldOrAlias ++ args ++ nested)
 
 
 {-| Build a Decoder from a Selector.
 -}
 toDecoder : Selector a -> Decoder a
-toDecoder (Selector _ decoder) =
-    decoder
+toDecoder selector =
+    case selector of
+        Selector _ decoder ->
+            decoder
+
+        Field alias name _ _ callSelector ->
+            toDecoder (callSelector (Maybe.withDefault name alias))
 
 
 {-| Parse the given string into a JSON value and then run the Decoder on it.
@@ -398,8 +416,8 @@ This will fail if the string is not well-formed JSON or if the Decoder fails for
 
 -}
 decodeString : Selector a -> String -> Result String a
-decodeString (Selector _ decoder) str =
-    Json.decodeString decoder str
+decodeString selector str =
+    Json.decodeString (toDecoder selector) str
 
 
 {-| Run a Decoder on some JSON Value.
@@ -407,8 +425,8 @@ You can send these JSON values through ports,
 so that is probably the main time you would use this function.
 -}
 decodeValue : Selector a -> Value -> Result String a
-decodeValue (Selector _ decoder) val =
-    Json.decodeValue decoder val
+decodeValue selector val =
+    Json.decodeValue (toDecoder selector) val
 
 
 {-| Transform a decoder. Maybe you just want to know the length of a string:
@@ -428,25 +446,26 @@ It is often helpful to use `map` with `oneOf`, like when defining `nullable`:
 
 -}
 map : (a -> b) -> Selector a -> Selector b
-map fn (Selector query decoder) =
-    Selector query (Json.map fn decoder)
+map fn selector =
+    case selector of
+        Selector graph decoder ->
+            Selector graph (Json.map fn decoder)
+
+        Field alias name arguments prev callSelector ->
+            Field alias name arguments prev (map fn << callSelector)
 
 
 {-| Create decoders that depend on previous results.
 Doesn't create depended Selector.
 -}
 andThen : (a -> Selector b) -> Selector a -> Selector b
-andThen fn (Selector query decoder) =
-    Json.andThen
-        (\value ->
-            let
-                (Selector _ next) =
-                    fn value
-            in
-            next
-        )
-        decoder
-        |> Selector query
+andThen fn selector =
+    case selector of
+        Selector graph decoder ->
+            Selector graph (Json.andThen (toDecoder << fn) decoder)
+
+        Field alias name arguments prev callSelector ->
+            Field alias name arguments prev (andThen fn << callSelector)
 
 
 {-| Ignore the JSON and produce a certain Elm value.

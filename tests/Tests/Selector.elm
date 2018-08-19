@@ -8,6 +8,11 @@ import GraphQL.Selector as Selector exposing (Selector)
 import Test exposing (Test, describe, test)
 
 
+type SearchResult
+    = User String
+    | Counter Int
+
+
 tests : Test
 tests =
     describe "GraphQL.Selector"
@@ -29,7 +34,6 @@ tests =
         , describe "GraphQL.Selector.succeed" succeedTests
         , describe "GraphQL.Selector.fail" failTests
         , describe "GraphQL.Selector.null" nullTests
-        , describe "GraphQL.Selector.on" onTests
         ]
 
 
@@ -42,8 +46,7 @@ structureTests =
                 |> Expect.equal ""
     , test "Single graph" <|
         \_ ->
-            Selector.succeed identity
-                |> Selector.field "bar" [] Selector.string
+            Selector.singleton "bar" [] Selector.string
                 |> Selector.render
                 |> Expect.equal "bar"
     , test "Multiple graph" <|
@@ -56,16 +59,12 @@ structureTests =
                 |> Expect.equal "bar foo baz"
     , test "Nested graph" <|
         \_ ->
-            Selector.succeed identity
-                |> Selector.field "bar"
+            Selector.singleton "bar"
+                []
+                (Selector.singleton "foo"
                     []
-                    (Selector.succeed identity
-                        |> Selector.field "foo"
-                            []
-                            (Selector.succeed identity
-                                |> Selector.field "baz" [] Selector.string
-                            )
-                    )
+                    (Selector.singleton "baz" [] Selector.string)
+                )
                 |> Selector.render
                 |> Expect.equal "bar{foo{baz}}"
     , test "Nested multiple graph" <|
@@ -90,111 +89,109 @@ structureTests =
                 |> Expect.equal "bar foo{bar1 foo1{bar2 foo2 baz2} baz1} baz"
     , test "Argumented graph" <|
         \_ ->
-            Selector.succeed identity
-                |> Selector.field "bar"
-                    [ ( "foo", Argument.string "baz" )
-                    ]
-                    Selector.string
+            Selector.singleton "bar"
+                [ ( "foo", Argument.string "baz" )
+                ]
+                Selector.string
                 |> Selector.render
                 |> Expect.equal """bar(foo:"baz")"""
     , test "Nested argumented graph" <|
         \_ ->
-            Selector.succeed identity
-                |> Selector.field "bar"
-                    [ ( "foo", Argument.string "baz" )
+            Selector.singleton "bar"
+                [ ( "foo", Argument.string "baz" )
+                ]
+                (Selector.singleton "bar1"
+                    [ ( "foo1", Argument.string "baz1" )
                     ]
-                    (Selector.succeed identity
-                        |> Selector.field "bar1"
-                            [ ( "foo1", Argument.string "baz1" )
-                            ]
-                            Selector.string
-                    )
+                    Selector.string
+                )
                 |> Selector.render
                 |> Expect.equal """bar(foo:"baz"){bar1(foo1:"baz1")}"""
     , test "Aliased graph" <|
         \_ ->
             Selector.succeed identity
-                |> Selector.aliased "foo" "bar" [] Selector.string
+                |> Selector.aliased "foo" (Selector.field "bar" [] Selector.string)
                 |> Selector.render
                 |> Expect.equal "foo:bar"
     , test "Aliased argumented graph" <|
         \_ ->
             Selector.succeed identity
                 |> Selector.aliased "foo"
-                    "bar"
-                    [ ( "baz", Argument.int 0 )
-                    ]
-                    Selector.string
+                    (Selector.field "bar"
+                        [ ( "baz", Argument.int 0 )
+                        ]
+                        Selector.string
+                    )
                 |> Selector.render
                 |> Expect.equal "foo:bar(baz:0)"
     , test "Full graph" <|
         \_ ->
             Selector.succeed (,,)
-                |> Selector.aliased
-                    "bar"
-                    "bar_zero"
-                    [ ( "str", Argument.string "zero" )
-                    , ( "int", Argument.int 0 )
-                    ]
-                    Selector.string
-                |> Selector.aliased
-                    "foo"
-                    "foo_zero"
-                    [ ( "str", Argument.string "zero" )
-                    , ( "int", Argument.int 0 )
-                    ]
-                    (Selector.succeed (,,)
-                        |> Selector.aliased
-                            "bar1"
-                            "bar_first"
-                            [ ( "str", Argument.string "first" )
-                            , ( "int", Argument.int 1 )
-                            ]
-                            Selector.string
-                        |> Selector.aliased
-                            "foo1"
-                            "foo_first"
-                            [ ( "str", Argument.string "first" )
-                            , ( "int", Argument.int 1 )
-                            ]
-                            (Selector.succeed (,,)
-                                |> Selector.aliased
-                                    "bar2"
-                                    "bar_second"
-                                    [ ( "str", Argument.string "second" )
-                                    , ( "int", Argument.int 2 )
-                                    ]
-                                    Selector.string
-                                |> Selector.aliased
-                                    "foo2"
-                                    "foo_second"
-                                    [ ( "str", Argument.string "second" )
-                                    , ( "int", Argument.int 2 )
-                                    ]
-                                    Selector.string
-                                |> Selector.aliased
-                                    "baz2"
-                                    "baz_second"
-                                    [ ( "str", Argument.string "second" )
-                                    , ( "int", Argument.int 2 )
-                                    ]
-                                    Selector.string
-                            )
-                        |> Selector.aliased
-                            "baz1"
-                            "baz_first"
-                            [ ( "str", Argument.string "first" )
-                            , ( "int", Argument.int 1 )
-                            ]
-                            Selector.string
+                |> Selector.aliased "bar"
+                    (Selector.field "bar_zero"
+                        [ ( "str", Argument.string "zero" )
+                        , ( "int", Argument.int 0 )
+                        ]
+                        Selector.string
                     )
-                |> Selector.aliased
-                    "baz"
-                    "baz_zero"
-                    [ ( "str", Argument.string "zero" )
-                    , ( "int", Argument.int 0 )
-                    ]
-                    Selector.string
+                |> Selector.aliased "foo"
+                    (Selector.field "foo_zero"
+                        [ ( "str", Argument.string "zero" )
+                        , ( "int", Argument.int 0 )
+                        ]
+                        (Selector.succeed (,,)
+                            |> Selector.aliased "bar1"
+                                (Selector.field "bar_first"
+                                    [ ( "str", Argument.string "first" )
+                                    , ( "int", Argument.int 1 )
+                                    ]
+                                    Selector.string
+                                )
+                            |> Selector.aliased "foo1"
+                                (Selector.field "foo_first"
+                                    [ ( "str", Argument.string "first" )
+                                    , ( "int", Argument.int 1 )
+                                    ]
+                                    (Selector.succeed (,,)
+                                        |> Selector.aliased "bar2"
+                                            (Selector.field "bar_second"
+                                                [ ( "str", Argument.string "second" )
+                                                , ( "int", Argument.int 2 )
+                                                ]
+                                                Selector.string
+                                            )
+                                        |> Selector.aliased "foo2"
+                                            (Selector.field "foo_second"
+                                                [ ( "str", Argument.string "second" )
+                                                , ( "int", Argument.int 2 )
+                                                ]
+                                                Selector.string
+                                            )
+                                        |> Selector.aliased "baz2"
+                                            (Selector.field "baz_second"
+                                                [ ( "str", Argument.string "second" )
+                                                , ( "int", Argument.int 2 )
+                                                ]
+                                                Selector.string
+                                            )
+                                    )
+                                )
+                            |> Selector.aliased "baz1"
+                                (Selector.field "baz_first"
+                                    [ ( "str", Argument.string "first" )
+                                    , ( "int", Argument.int 1 )
+                                    ]
+                                    Selector.string
+                                )
+                        )
+                    )
+                |> Selector.aliased "baz"
+                    (Selector.field "baz_zero"
+                        [ ( "str", Argument.string "zero" )
+                        , ( "int", Argument.int 0 )
+                        ]
+                        Selector.string
+                    )
                 |> Selector.render
                 |> Expect.equal """bar:bar_zero(str:"zero",int:0) foo:foo_zero(str:"zero",int:0){bar1:bar_first(str:"first",int:1) foo1:foo_first(str:"first",int:1){bar2:bar_second(str:"second",int:2) foo2:foo_second(str:"second",int:2) baz2:baz_second(str:"second",int:2)} baz1:baz_first(str:"first",int:1)} baz:baz_zero(str:"zero",int:0)"""
     ]
@@ -205,41 +202,44 @@ stringTests =
     let
         fieldSelector =
             Selector.succeed (,)
+                |> Debug.log "-------- 0"
                 |> Selector.field "foo" [] Selector.string
+                |> Debug.log "-------- 1"
                 |> Selector.field "bar" [] Selector.string
+                |> Debug.log "-------- 2"
     in
     [ test "Invalid source with direct selector" <|
         \_ ->
             """
-                0
-                """
+            0
+            """
                 |> Selector.decodeString Selector.string
                 |> Expect.equal (Err "Expecting a String but instead got: 0")
     , test "Valid source with direct selector" <|
         \_ ->
             """
-                "string value"
-                """
+            "string value"
+            """
                 |> Selector.decodeString Selector.string
                 |> Expect.equal (Ok "string value")
     , test "Invalid source with field selector" <|
         \_ ->
             """
-                {
-                    "foo": false,
-                    "bar": "another value"
-                }
-                """
+            {
+                "foo": false,
+                "bar": "another value"
+            }
+            """
                 |> Selector.decodeString fieldSelector
                 |> Expect.equal (Err "Expecting a String at _.foo but instead got: false")
     , test "Valid source with field selector" <|
         \_ ->
             """
-                {
-                    "foo": "string value",
-                    "bar": "another value"
-                }
-                """
+            {
+                "foo": "string value",
+                "bar": "another value"
+            }
+            """
                 |> Selector.decodeString fieldSelector
                 |> Expect.equal (Ok ( "string value", "another value" ))
     , test "Build graph" <|
@@ -267,35 +267,35 @@ boolTests =
     [ test "Invalid source with direct selector" <|
         \_ ->
             """
-                0
-                """
+            0
+            """
                 |> Selector.decodeString Selector.bool
                 |> Expect.equal (Err "Expecting a Bool but instead got: 0")
     , test "Valid source with direct selector" <|
         \_ ->
             """
-                false
-                """
+            false
+            """
                 |> Selector.decodeString Selector.bool
                 |> Expect.equal (Ok False)
     , test "Invalid source with field selector" <|
         \_ ->
             """
-                {
-                    "foo": "string value",
-                    "bar": true
-                }
-                """
+            {
+                "foo": "string value",
+                "bar": true
+            }
+            """
                 |> Selector.decodeString fieldSelector
                 |> Expect.equal (Err "Expecting a Bool at _.foo but instead got: \"string value\"")
     , test "Valid source with field selector" <|
         \_ ->
             """
-                {
-                    "foo": true,
-                    "bar": false
-                }
-                """
+            {
+                "foo": true,
+                "bar": false
+            }
+            """
                 |> Selector.decodeString fieldSelector
                 |> Expect.equal (Ok ( True, False ))
     , test "Build graph" <|
@@ -323,25 +323,25 @@ intTests =
     [ test "Invalid source with direct selector" <|
         \_ ->
             """
-                0.1
-                """
+            0.1
+            """
                 |> Selector.decodeString Selector.int
                 |> Expect.equal (Err "Expecting an Int but instead got: 0.1")
     , test "Valid source with direct selector" <|
         \_ ->
             """
-                1
-                """
+            1
+            """
                 |> Selector.decodeString Selector.int
                 |> Expect.equal (Ok 1)
     , test "Invalid source with field selector" <|
         \_ ->
             """
-                {
-                    "foo": "string value",
-                    "bar": 0
-                }
-                """
+            {
+                "foo": "string value",
+                "bar": 0
+            }
+            """
                 |> Selector.decodeString fieldSelector
                 |> Expect.equal (Err "Expecting an Int at _.foo but instead got: \"string value\"")
     , test "Valid source with field selector" <|
@@ -1633,362 +1633,4 @@ nullTests =
                     )
                 |> Selector.render
                 |> Expect.equal "foo bar{baz}"
-    ]
-
-
-type SearchResult
-    = User String
-    | Counter Int
-
-
-onTests : List Test
-onTests =
-    let
-        emptySelector =
-            Selector.succeed identity
-                |> Selector.on []
-
-        singleNonFieldSelector =
-            Selector.succeed identity
-                |> Selector.on
-                    [ ( "User", Selector.string )
-                    ]
-
-        multipeNonFieldSelector =
-            Selector.succeed identity
-                |> Selector.on
-                    [ ( "User", Selector.map User Selector.string )
-                    , ( "Counter", Selector.map Counter Selector.int )
-                    ]
-
-        multipleEmptySelector =
-            Selector.succeed (,)
-                |> Selector.on []
-                |> Selector.field "id" [] Selector.string
-
-        multipleToSingleNonFieldSelector =
-            Selector.succeed (,)
-                |> Selector.on
-                    [ ( "User", Selector.string )
-                    ]
-                |> Selector.field "id" [] Selector.string
-
-        multipleToMultipeNonFieldSelector =
-            Selector.succeed (,)
-                |> Selector.on
-                    [ ( "User", Selector.map User Selector.string )
-                    , ( "Counter", Selector.map Counter Selector.int )
-                    ]
-                |> Selector.field "id" [] Selector.string
-
-        singleFieldSelector =
-            Selector.succeed identity
-                |> Selector.on
-                    [ ( "User"
-                      , Selector.succeed identity
-                            |> Selector.field "username" [] Selector.string
-                      )
-                    ]
-
-        multipeFieldSelector =
-            Selector.succeed identity
-                |> Selector.on
-                    [ ( "User"
-                      , Selector.succeed User
-                            |> Selector.field "username" [] Selector.string
-                      )
-                    , ( "Counter"
-                      , Selector.succeed Counter
-                            |> Selector.field "count" [] Selector.int
-                      )
-                    ]
-
-        multipleToSingleFieldSelector =
-            Selector.succeed (,)
-                |> Selector.field "id" [] Selector.string
-                |> Selector.on
-                    [ ( "User"
-                      , Selector.succeed identity
-                            |> Selector.field "username" [] Selector.string
-                      )
-                    ]
-
-        multipleToMultipeFieldSelector =
-            Selector.succeed (,)
-                |> Selector.on
-                    [ ( "User"
-                      , Selector.succeed User
-                            |> Selector.field "username" [] Selector.string
-                      )
-                    , ( "Counter"
-                      , Selector.succeed Counter
-                            |> Selector.field "count" [] Selector.int
-                      )
-                    ]
-                |> Selector.field "id" [] Selector.string
-
-        nestedSelector =
-            Selector.succeed (,)
-                |> Selector.field "search" [] Selector.string
-                |> Selector.field "results" [] (Selector.list multipleToMultipeFieldSelector)
-    in
-    [ test "Valid source with single to empty selector" <|
-        \_ ->
-            """
-                {}
-                """
-                |> Selector.decodeString emptySelector
-                |> Expect.equal (Err "I ran into the following problems:\n\n")
-    , test "Build graph with single to empty selector" <|
-        \_ ->
-            Selector.render emptySelector
-                |> Expect.equal ""
-    , test "Valid source with single to single non field selector" <|
-        \_ ->
-            """
-                {}
-                """
-                |> Selector.decodeString singleNonFieldSelector
-                |> Expect.equal (Err "I ran into the following problems:\n\n")
-    , test "Build graph with single to single non field selector" <|
-        \_ ->
-            Selector.render singleNonFieldSelector
-                |> Expect.equal ""
-    , test "Valid source with single to multiple non field selector" <|
-        \_ ->
-            """
-                {}
-                """
-                |> Selector.decodeString multipeNonFieldSelector
-                |> Expect.equal (Err "I ran into the following problems:\n\n")
-    , test "Build graph with single to multiple non field selector" <|
-        \_ ->
-            Selector.render multipeNonFieldSelector
-                |> Expect.equal ""
-    , test "Invalid source with multiple to empty selector" <|
-        \_ ->
-            """
-                {}
-                """
-                |> Selector.decodeString multipleEmptySelector
-                |> Expect.equal (Err "Expecting an object with a field named `id` but instead got: {}")
-    , test "Valid source with multiple to empty selector" <|
-        \_ ->
-            """
-                {
-                    "id": "identificator"
-                }
-                """
-                |> Selector.decodeString multipleEmptySelector
-                |> Expect.equal (Err "I ran into the following problems:\n\n")
-    , test "Build graph with multiple to empty selector" <|
-        \_ ->
-            Selector.render multipleEmptySelector
-                |> Expect.equal "id"
-    , test "Invalid source with multiple to single non field selector" <|
-        \_ ->
-            """
-                {}
-                """
-                |> Selector.decodeString multipleToSingleNonFieldSelector
-                |> Expect.equal (Err "Expecting an object with a field named `id` but instead got: {}")
-    , test "Valid source with multiple to single non field selector" <|
-        \_ ->
-            """
-                {
-                    "id": "identificator"
-                }
-                """
-                |> Selector.decodeString multipleToSingleNonFieldSelector
-                |> Expect.equal (Err "I ran into the following problems:\n\n")
-    , test "Build graph with multiple to single non field selector" <|
-        \_ ->
-            Selector.render multipleToSingleNonFieldSelector
-                |> Expect.equal "id"
-    , test "Invalid source with multiple to multiple non field selector" <|
-        \_ ->
-            """
-                {}
-                """
-                |> Selector.decodeString multipleToMultipeNonFieldSelector
-                |> Expect.equal (Err "Expecting an object with a field named `id` but instead got: {}")
-    , test "Valid source with multiple to multiple non field selector" <|
-        \_ ->
-            """
-                {
-                    "id": "identificator"
-                }
-                """
-                |> Selector.decodeString multipleToMultipeNonFieldSelector
-                |> Expect.equal (Err "I ran into the following problems:\n\n")
-    , test "Build graph with multiple to multiple non field selector" <|
-        \_ ->
-            Selector.render multipleToMultipeNonFieldSelector
-                |> Expect.equal "id"
-    , test "Invalid source with single to single field selector" <|
-        \_ ->
-            """
-                {}
-                """
-                |> Selector.decodeString singleFieldSelector
-                |> Expect.equal
-                    ("I ran into the following problems:\n"
-                        ++ "\nExpecting an object with a field named `username` but instead got: {}"
-                        |> Err
-                    )
-    , test "Valid source with single to single field selector" <|
-        \_ ->
-            """
-                {
-                    "username": "Bob"
-                }
-                """
-                |> Selector.decodeString singleFieldSelector
-                |> Expect.equal (Ok "Bob")
-    , test "Build graph with single to single field selector" <|
-        \_ ->
-            Selector.render singleFieldSelector
-                |> Expect.equal "...on User{username}"
-    , test "Invalid source with single to multiple field selector" <|
-        \_ ->
-            """
-                {}
-                """
-                |> Selector.decodeString multipeFieldSelector
-                |> Expect.equal
-                    ("I ran into the following problems:\n"
-                        ++ "\nExpecting an object with a field named `username` but instead got: {}"
-                        ++ "\nExpecting an object with a field named `count` but instead got: {}"
-                        |> Err
-                    )
-    , test "Valid User source with single to multiple field selector" <|
-        \_ ->
-            """
-                {
-                    "username": "Bob"
-                }
-                """
-                |> Selector.decodeString multipeFieldSelector
-                |> Expect.equal (Ok (User "Bob"))
-    , test "Valid Counter source with single to multiple field selector" <|
-        \_ ->
-            """
-                {
-                    "count": 5
-                }
-                """
-                |> Selector.decodeString multipeFieldSelector
-                |> Expect.equal (Ok (Counter 5))
-    , test "Build graph with single to multiple field selector" <|
-        \_ ->
-            Selector.render multipeFieldSelector
-                |> Expect.equal "...on User{username} ...on Counter{count}"
-    , test "Invalid source with multiple to single field selector" <|
-        \_ ->
-            """
-                {}
-                """
-                |> Selector.decodeString multipleToSingleFieldSelector
-                |> Expect.equal
-                    ("I ran into the following problems:\n"
-                        ++ "\nExpecting an object with a field named `username` but instead got: {}"
-                        |> Err
-                    )
-    , test "Valid User source with multiple to single field selector" <|
-        \_ ->
-            """
-                {
-                    "id": "identificator",
-                    "username": "Bob"
-                }
-                """
-                |> Selector.decodeString multipleToSingleFieldSelector
-                |> Expect.equal (Ok ( "identificator", "Bob" ))
-    , test "Build graph with multiple to single field selector" <|
-        \_ ->
-            Selector.render multipleToSingleFieldSelector
-                |> Expect.equal "id ...on User{username}"
-    , test "Invalid source with multiple to multiple field selector" <|
-        \_ ->
-            """
-                {}
-                """
-                |> Selector.decodeString multipleToMultipeFieldSelector
-                |> Expect.equal (Err "Expecting an object with a field named `id` but instead got: {}")
-    , test "Valid User source with multiple to multiple field selector" <|
-        \_ ->
-            """
-                {
-                    "id": "identificator",
-                    "username": "Bob"
-                }
-                """
-                |> Selector.decodeString multipleToMultipeFieldSelector
-                |> Expect.equal (Ok ( User "Bob", "identificator" ))
-    , test "Valid Counter source with multiple to multiple field selector" <|
-        \_ ->
-            """
-                {
-                    "id": "identificator",
-                    "count": 5
-                }
-                """
-                |> Selector.decodeString multipleToMultipeFieldSelector
-                |> Expect.equal (Ok ( Counter 5, "identificator" ))
-    , test "Build graph with multiple to multiple field selector" <|
-        \_ ->
-            Selector.render multipleToMultipeFieldSelector
-                |> Expect.equal "...on User{username} ...on Counter{count} id"
-    , test "Invalid source with nested selector" <|
-        \_ ->
-            """
-                {}
-                """
-                |> Selector.decodeString nestedSelector
-                |> Expect.equal (Err "Expecting an object with a field named `results` but instead got: {}")
-    , test "Valid empty source with nested selector" <|
-        \_ ->
-            """
-                {
-                    "search": "foo",
-                    "results": []
-                }
-                """
-                |> Selector.decodeString nestedSelector
-                |> Expect.equal (Ok ( "foo", [] ))
-    , test "Valid mixed source with nested selector" <|
-        \_ ->
-            """
-                {
-                    "search": "bar",
-                    "results": [
-                        {
-                            "id": "identificator1",
-                            "username": "Bob"
-                        },
-                        {
-                            "id": "identificator2",
-                            "count": 5
-                        },
-                        {
-                            "id": "identificator3",
-                            "username": "Tom"
-                        }
-                    ]
-                }
-                """
-                |> Selector.decodeString nestedSelector
-                |> Expect.equal
-                    (Ok
-                        ( "bar"
-                        , [ ( User "Bob", "identificator1" )
-                          , ( Counter 5, "identificator2" )
-                          , ( User "Tom", "identificator3" )
-                          ]
-                        )
-                    )
-    , test "Build graph with nested selector" <|
-        \_ ->
-            Selector.render nestedSelector
-                |> Expect.equal "search results{...on User{username} ...on Counter{count} id}"
     ]
