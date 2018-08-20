@@ -99,27 +99,12 @@ infixl 0 $>
 
 {-| -}
 ($>) : Selector (a -> b) -> Selector a -> Selector b
-($>) (Selector prevQuery next) (Selector nextQuery decoder) =
-    let
-        query =
-            case ( prevQuery, nextQuery ) of
-                ( Nothing, Nothing ) ->
-                    Nothing
-
-                ( Nothing, Just next ) ->
-                    Just next
-
-                ( Just prev, Nothing ) ->
-                    Just prev
-
-                ( Just prev, Just next ) ->
-                    Just (prev ++ " " ++ next)
-    in
-    Selector query (Json.map2 (|>) decoder next)
+($>) next selector =
+    map2 (|>) selector next
 
 
-joinQueries : List (Maybe String) -> Maybe String
-joinQueries queries =
+filterJoinQueries : List (Maybe String) -> Maybe String
+filterJoinQueries queries =
     case List.filterMap identity queries of
         [] ->
             Nothing
@@ -128,7 +113,12 @@ joinQueries queries =
             Just single
 
         many ->
-            Just (String.join " " many)
+            Just (joinQueries many)
+
+
+joinQueries : List String -> String
+joinQueries =
+    String.join " "
 
 
 {-| Transform a selector. Maybe you just want to know the length of a string:
@@ -174,7 +164,7 @@ constructor.
 map2 : (a -> b -> c) -> Selector a -> Selector b -> Selector c
 map2 fn (Selector qA dA) (Selector qB dB) =
     Selector
-        (joinQueries [ qA, qB ])
+        (filterJoinQueries [ qB, qA ])
         (Json.map2 fn dA dB)
 
 
@@ -202,7 +192,7 @@ Like `map2` it tries each decoder in order and then give the results to the
 map3 : (a -> b -> c -> d) -> Selector a -> Selector b -> Selector c -> Selector d
 map3 fn (Selector qA dA) (Selector qB dB) (Selector qC dC) =
     Selector
-        (joinQueries [ qA, qB, qC ])
+        (filterJoinQueries [ qC, qB, qA ])
         (Json.map3 fn dA dB dC)
 
 
@@ -210,7 +200,7 @@ map3 fn (Selector qA dA) (Selector qB dB) (Selector qC dC) =
 map4 : (a -> b -> c -> d -> e) -> Selector a -> Selector b -> Selector c -> Selector d -> Selector e
 map4 fn (Selector qA dA) (Selector qB dB) (Selector qC dC) (Selector qD dD) =
     Selector
-        (joinQueries [ qA, qB, qC, qD ])
+        (filterJoinQueries [ qD, qC, qB, qA ])
         (Json.map4 fn dA dB dC dD)
 
 
@@ -218,7 +208,7 @@ map4 fn (Selector qA dA) (Selector qB dB) (Selector qC dC) (Selector qD dD) =
 map5 : (a -> b -> c -> d -> e -> f) -> Selector a -> Selector b -> Selector c -> Selector d -> Selector e -> Selector f
 map5 fn (Selector qA dA) (Selector qB dB) (Selector qC dC) (Selector qD dD) (Selector qE dE) =
     Selector
-        (joinQueries [ qA, qB, qC, qD, qE ])
+        (filterJoinQueries [ qE, qD, qC, qB, qA ])
         (Json.map5 fn dA dB dC dD dE)
 
 
@@ -226,7 +216,7 @@ map5 fn (Selector qA dA) (Selector qB dB) (Selector qC dC) (Selector qD dD) (Sel
 map6 : (a -> b -> c -> d -> e -> f -> g) -> Selector a -> Selector b -> Selector c -> Selector d -> Selector e -> Selector f -> Selector g
 map6 fn (Selector qA dA) (Selector qB dB) (Selector qC dC) (Selector qD dD) (Selector qE dE) (Selector qF dF) =
     Selector
-        (joinQueries [ qA, qB, qC, qD, qE, qF ])
+        (filterJoinQueries [ qF, qE, qD, qC, qB, qA ])
         (Json.map6 fn dA dB dC dD dE dF)
 
 
@@ -234,7 +224,7 @@ map6 fn (Selector qA dA) (Selector qB dB) (Selector qC dC) (Selector qD dD) (Sel
 map7 : (a -> b -> c -> d -> e -> f -> g -> h) -> Selector a -> Selector b -> Selector c -> Selector d -> Selector e -> Selector f -> Selector g -> Selector h
 map7 fn (Selector qA dA) (Selector qB dB) (Selector qC dC) (Selector qD dD) (Selector qE dE) (Selector qF dF) (Selector qG dG) =
     Selector
-        (joinQueries [ qA, qB, qC, qD, qE, qF, qG ])
+        (filterJoinQueries [ qG, qF, qE, qD, qC, qB, qA ])
         (Json.map7 fn dA dB dC dD dE dF dG)
 
 
@@ -242,7 +232,7 @@ map7 fn (Selector qA dA) (Selector qB dB) (Selector qC dC) (Selector qD dD) (Sel
 map8 : (a -> b -> c -> d -> e -> f -> g -> h -> i) -> Selector a -> Selector b -> Selector c -> Selector d -> Selector e -> Selector f -> Selector g -> Selector h -> Selector i
 map8 fn (Selector qA dA) (Selector qB dB) (Selector qC dC) (Selector qD dD) (Selector qE dE) (Selector qF dF) (Selector qG dG) (Selector qI dI) =
     Selector
-        (joinQueries [ qA, qB, qC, qD, qE, qF, qG, qI ])
+        (filterJoinQueries [ qI, qG, qF, qE, qD, qC, qB, qA ])
         (Json.map8 fn dA dB dC dD dE dF dG dI)
 
 
@@ -500,13 +490,13 @@ on selectors =
             selectors
                 |> List.map
                     (\( entity, Selector query decoder ) ->
-                        ( Just ("...on " ++ entity ++ Internal.wrap "{" "}" (Maybe.withDefault "" query))
+                        ( "...on " ++ entity ++ Internal.wrap "{" "}" (Maybe.withDefault "" query)
                         , decoder
                         )
                     )
                 |> List.unzip
     in
-    Selector (joinQueries queries) (Json.oneOf decoders)
+    Selector (Just (joinQueries queries)) (Json.oneOf decoders)
 
 
 {-| Try a bunch of different selectors. This can be useful if the JSON may come
@@ -537,7 +527,7 @@ oneOf selectors =
                 |> List.map (\(Selector query decoder) -> ( query, decoder ))
                 |> List.unzip
     in
-    Selector (joinQueries queries) (Json.oneOf decoders)
+    Selector (filterJoinQueries queries) (Json.oneOf decoders)
 
 
 {-| Render GraphQL representation of Selector.
