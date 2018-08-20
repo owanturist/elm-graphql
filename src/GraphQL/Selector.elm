@@ -118,6 +118,19 @@ infixl 0 $>
     Selector query (Json.map2 (|>) decoder next)
 
 
+joinQueries : List (Maybe String) -> Maybe String
+joinQueries queries =
+    case List.filterMap identity queries of
+        [] ->
+            Nothing
+
+        [ single ] ->
+            Just single
+
+        many ->
+            Just (String.join " " many)
+
+
 {-| Transform a selector. Maybe you just want to know the length of a string:
 
     stringLength : Selector Int
@@ -137,6 +150,100 @@ It is often helpful to use `map` with `oneOf`, like when defining `nullable`:
 map : (a -> b) -> Selector a -> Selector b
 map fn (Selector query decoder) =
     Selector query (Json.map fn decoder)
+
+
+{-| Try two selectors and then combine the result
+We can use this to select objects with many fields:
+
+    type alias Point =
+        { x : Float, y : Float }
+
+    point : Selector Point
+    point =
+        map2 Point
+            (field "x" [] float)
+            (field "y" [] float)
+
+
+    -- decodeString point """{ "x": 3, "y": 4 }""" == Ok { x = 3, y = 4 }
+
+It tries each individual decoder and puts the result together with the `Point`
+constructor.
+
+-}
+map2 : (a -> b -> c) -> Selector a -> Selector b -> Selector c
+map2 fn (Selector qA dA) (Selector qB dB) =
+    Selector
+        (joinQueries [ qA, qB ])
+        (Json.map2 fn dA dB)
+
+
+{-| Try three selectors and then combine the result.
+We can use this to select objects with many fields:
+
+    type alias Person =
+        { name : String, age : Int, height : Float }
+
+    person : Selector Person
+    person =
+        map3 Person
+            (field "name" [] string)
+            (field age" [] int)
+            (field "height" [] float)
+
+
+    -- json = """{ "name": "tom", "info": { "age": 42, "height": 1.8 } }"""
+    -- decodeString person json == Ok { name = "tom", age = 42, height = 1.8 }
+
+Like `map2` it tries each decoder in order and then give the results to the
+`Person` constructor. That can be any function though!
+
+-}
+map3 : (a -> b -> c -> d) -> Selector a -> Selector b -> Selector c -> Selector d
+map3 fn (Selector qA dA) (Selector qB dB) (Selector qC dC) =
+    Selector
+        (joinQueries [ qA, qB, qC ])
+        (Json.map3 fn dA dB dC)
+
+
+{-| -}
+map4 : (a -> b -> c -> d -> e) -> Selector a -> Selector b -> Selector c -> Selector d -> Selector e
+map4 fn (Selector qA dA) (Selector qB dB) (Selector qC dC) (Selector qD dD) =
+    Selector
+        (joinQueries [ qA, qB, qC, qD ])
+        (Json.map4 fn dA dB dC dD)
+
+
+{-| -}
+map5 : (a -> b -> c -> d -> e -> f) -> Selector a -> Selector b -> Selector c -> Selector d -> Selector e -> Selector f
+map5 fn (Selector qA dA) (Selector qB dB) (Selector qC dC) (Selector qD dD) (Selector qE dE) =
+    Selector
+        (joinQueries [ qA, qB, qC, qD, qE ])
+        (Json.map5 fn dA dB dC dD dE)
+
+
+{-| -}
+map6 : (a -> b -> c -> d -> e -> f -> g) -> Selector a -> Selector b -> Selector c -> Selector d -> Selector e -> Selector f -> Selector g
+map6 fn (Selector qA dA) (Selector qB dB) (Selector qC dC) (Selector qD dD) (Selector qE dE) (Selector qF dF) =
+    Selector
+        (joinQueries [ qA, qB, qC, qD, qE, qF ])
+        (Json.map6 fn dA dB dC dD dE dF)
+
+
+{-| -}
+map7 : (a -> b -> c -> d -> e -> f -> g -> h) -> Selector a -> Selector b -> Selector c -> Selector d -> Selector e -> Selector f -> Selector g -> Selector h
+map7 fn (Selector qA dA) (Selector qB dB) (Selector qC dC) (Selector qD dD) (Selector qE dE) (Selector qF dF) (Selector qG dG) =
+    Selector
+        (joinQueries [ qA, qB, qC, qD, qE, qF, qG ])
+        (Json.map7 fn dA dB dC dD dE dF dG)
+
+
+{-| -}
+map8 : (a -> b -> c -> d -> e -> f -> g -> h -> i) -> Selector a -> Selector b -> Selector c -> Selector d -> Selector e -> Selector f -> Selector g -> Selector h -> Selector i
+map8 fn (Selector qA dA) (Selector qB dB) (Selector qC dC) (Selector qD dD) (Selector qE dE) (Selector qF dF) (Selector qG dG) (Selector qI dI) =
+    Selector
+        (joinQueries [ qA, qB, qC, qD, qE, qF, qG, qI ])
+        (Json.map8 fn dA dB dC dD dE dF dG dI)
 
 
 {-| Create a selector that depend on previous results.
@@ -393,13 +500,13 @@ on selectors =
             selectors
                 |> List.map
                     (\( entity, Selector query decoder ) ->
-                        ( "...on " ++ entity ++ Internal.wrap "{" "}" (Maybe.withDefault "" query)
+                        ( Just ("...on " ++ entity ++ Internal.wrap "{" "}" (Maybe.withDefault "" query))
                         , decoder
                         )
                     )
                 |> List.unzip
     in
-    Selector (Just (String.join " " queries)) (Json.oneOf decoders)
+    Selector (joinQueries queries) (Json.oneOf decoders)
 
 
 {-| Try a bunch of different selectors. This can be useful if the JSON may come
@@ -429,16 +536,8 @@ oneOf selectors =
             selectors
                 |> List.map (\(Selector query decoder) -> ( query, decoder ))
                 |> List.unzip
-
-        query =
-            case List.filterMap identity queries of
-                [] ->
-                    Nothing
-
-                many ->
-                    Just (String.join " " many)
     in
-    Selector query (Json.oneOf decoders)
+    Selector (joinQueries queries) (Json.oneOf decoders)
 
 
 {-| Render GraphQL representation of Selector.
