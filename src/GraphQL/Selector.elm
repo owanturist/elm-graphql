@@ -1,6 +1,7 @@
 module GraphQL.Selector
     exposing
-        ( ($>)
+        ( (!>)
+        , (?>)
         , Selector
         , Value
         , aliased
@@ -46,7 +47,7 @@ module GraphQL.Selector
 
 # Object Primitives
 
-@docs ($>), field, aliased, index, on
+@docs (!>), (?>), field, aliased, index, on
 
 
 # Inconsistent Structure
@@ -94,13 +95,22 @@ container wrapper (Selector query decoder) =
     Selector query (wrapper decoder)
 
 
-infixl 0 $>
+infixl 0 !>
 
 
 {-| -}
-($>) : Selector (a -> b) -> Selector a -> Selector b
-($>) next selector =
+(!>) : Selector (a -> b) -> Selector a -> Selector b
+(!>) next selector =
     map2 (|>) selector next
+
+
+infixl 0 ?>
+
+
+{-| -}
+(?>) : Selector (Maybe a -> b) -> Selector a -> Selector b
+(?>) next selector =
+    map2 (|>) (nullable selector) next
 
 
 filterJoinQueries : List (Maybe String) -> Maybe String
