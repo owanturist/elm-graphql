@@ -182,11 +182,10 @@ subscription =
 
 {-| Render GraphQL representation from a GraphQL.
 -}
-render : GraphQL a -> Maybe String
+render : GraphQL a -> String
 render (GraphQL operation name selector) =
-    Maybe.map
-        ((++) (operation ++ " " ++ name) << Internal.wrap "{" "}")
-        (Selector.render selector)
+    (operation ++ " " ++ name)
+        ++ Internal.wrap "{" "}" (Selector.render selector)
 
 
 {-| Build a Decoder from a GraphQL.
@@ -219,25 +218,22 @@ requestBuilder isGetMethod url graphql =
         query =
             render graphql
 
-        ( methodStr, queryParams, body ) =
+        ( method, queryParams, body ) =
             if isGetMethod then
                 ( "GET"
-                , [ Maybe.map ((,) "query") query ]
-                    |> List.filterMap identity
+                , [ ( "query", query ) ]
                 , Http.emptyBody
                 )
             else
                 ( "POST"
                 , []
-                , [ Maybe.map ((,) "query" << Encode.string) query
-                  ]
-                    |> List.filterMap identity
+                , [ ( "query", Encode.string query ) ]
                     |> Encode.object
                     |> Http.jsonBody
                 )
     in
     Request
-        { method = methodStr
+        { method = method
         , url = url
         , headers = []
         , body = body
@@ -309,7 +305,7 @@ withHeader key value (Request builder) =
 -}
 withHeaders : List ( String, String ) -> Request a -> Request a
 withHeaders headerPairs (Request builder) =
-    Request { builder | headers = List.map (uncurry Http.header) headerPairs ++ builder.headers }
+    Request { builder | headers = builder.headers ++ List.map (uncurry Http.header) headerPairs }
 
 
 {-| Add a bearer token to a request.
@@ -324,7 +320,7 @@ withHeaders headerPairs (Request builder) =
 -}
 withBearerToken : String -> Request a -> Request a
 withBearerToken value (Request builder) =
-    Request { builder | headers = Http.header "Authorization" ("Bearer " ++ value) :: builder.headers }
+    Request { builder | headers = builder.headers ++ [ Http.header "Authorization" ("Bearer " ++ value) ] }
 
 
 {-| Add a query param to the url for the request.

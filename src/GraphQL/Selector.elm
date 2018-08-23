@@ -1,6 +1,8 @@
 module GraphQL.Selector
     exposing
-        ( Selector
+        ( (!>)
+        , (?>)
+        , Selector
         , Value
         , aliased
         , andThen
@@ -23,7 +25,6 @@ module GraphQL.Selector
         , on
         , oneOf
         , render
-        , singleton
         , string
         , succeed
         , toDecoder
@@ -46,7 +47,7 @@ module GraphQL.Selector
 
 # Object Primitives
 
-@docs field, aliased, index
+@docs (!>), (?>), field, aliased, index, on
 
 
 # Inconsistent Structure
@@ -62,7 +63,7 @@ module GraphQL.Selector
 
 # Fancy Decoding
 
-@docs map, andThen, succeed, fail, value, null, on, singleton
+@docs map, andThen, succeed, fail, value, null
 
 -}
 
@@ -72,10 +73,185 @@ import GraphQL.Internal as Internal exposing (Argument)
 import Json.Decode as Json exposing (Decoder)
 
 
+{-| A JSON value.
+-}
+type alias Value =
+    Json.Value
+
+
 {-| A value that knows how to select (receive and decode) a GraphQL values.
 -}
 type Selector a
     = Selector (Maybe String) (Decoder a)
+
+
+primitive : Decoder a -> Selector a
+primitive =
+    Selector Nothing
+
+
+container : (Decoder a -> Decoder b) -> Selector a -> Selector b
+container wrapper (Selector query decoder) =
+    Selector query (wrapper decoder)
+
+
+infixl 0 !>
+
+
+{-| -}
+(!>) : Selector (a -> b) -> Selector a -> Selector b
+(!>) next selector =
+    map2 (|>) selector next
+
+
+infixl 0 ?>
+
+
+{-| -}
+(?>) : Selector (Maybe a -> b) -> Selector a -> Selector b
+(?>) next selector =
+    map2 (|>) (nullable selector) next
+
+
+filterJoinQueries : List (Maybe String) -> Maybe String
+filterJoinQueries queries =
+    case List.filterMap identity queries of
+        [] ->
+            Nothing
+
+        [ single ] ->
+            Just single
+
+        many ->
+            Just (joinQueries many)
+
+
+joinQueries : List String -> String
+joinQueries =
+    String.join " "
+
+
+{-| Transform a selector. Maybe you just want to know the length of a string:
+
+    stringLength : Selector Int
+    stringLength =
+        map String.length string
+
+It is often helpful to use `map` with `oneOf`, like when defining `nullable`:
+
+    nullable : Selector a -> Selector (Maybe a)
+    nullable selector =
+        oneOf
+            [ null Nothing
+            , map Just selector
+            ]
+
+-}
+map : (a -> b) -> Selector a -> Selector b
+map fn (Selector query decoder) =
+    Selector query (Json.map fn decoder)
+
+
+{-| Try two selectors and then combine the result
+We can use this to select objects with many fields:
+
+    type alias Point =
+        { x : Float, y : Float }
+
+    point : Selector Point
+    point =
+        map2 Point
+            (field "x" [] float)
+            (field "y" [] float)
+
+
+    -- decodeString point """{ "x": 3, "y": 4 }""" == Ok { x = 3, y = 4 }
+
+It tries each individual decoder and puts the result together with the `Point`
+constructor.
+
+-}
+map2 : (a -> b -> c) -> Selector a -> Selector b -> Selector c
+map2 fn (Selector qA dA) (Selector qB dB) =
+    Selector
+        (filterJoinQueries [ qB, qA ])
+        (Json.map2 fn dA dB)
+
+
+{-| Try three selectors and then combine the result.
+We can use this to select objects with many fields:
+
+    type alias Person =
+        { name : String, age : Int, height : Float }
+
+    person : Selector Person
+    person =
+        map3 Person
+            (field "name" [] string)
+            (field age" [] int)
+            (field "height" [] float)
+
+
+    -- json = """{ "name": "tom", "info": { "age": 42, "height": 1.8 } }"""
+    -- decodeString person json == Ok { name = "tom", age = 42, height = 1.8 }
+
+Like `map2` it tries each decoder in order and then give the results to the
+`Person` constructor. That can be any function though!
+
+-}
+map3 : (a -> b -> c -> d) -> Selector a -> Selector b -> Selector c -> Selector d
+map3 fn (Selector qA dA) (Selector qB dB) (Selector qC dC) =
+    Selector
+        (filterJoinQueries [ qC, qB, qA ])
+        (Json.map3 fn dA dB dC)
+
+
+{-| -}
+map4 : (a -> b -> c -> d -> e) -> Selector a -> Selector b -> Selector c -> Selector d -> Selector e
+map4 fn (Selector qA dA) (Selector qB dB) (Selector qC dC) (Selector qD dD) =
+    Selector
+        (filterJoinQueries [ qD, qC, qB, qA ])
+        (Json.map4 fn dA dB dC dD)
+
+
+{-| -}
+map5 : (a -> b -> c -> d -> e -> f) -> Selector a -> Selector b -> Selector c -> Selector d -> Selector e -> Selector f
+map5 fn (Selector qA dA) (Selector qB dB) (Selector qC dC) (Selector qD dD) (Selector qE dE) =
+    Selector
+        (filterJoinQueries [ qE, qD, qC, qB, qA ])
+        (Json.map5 fn dA dB dC dD dE)
+
+
+{-| -}
+map6 : (a -> b -> c -> d -> e -> f -> g) -> Selector a -> Selector b -> Selector c -> Selector d -> Selector e -> Selector f -> Selector g
+map6 fn (Selector qA dA) (Selector qB dB) (Selector qC dC) (Selector qD dD) (Selector qE dE) (Selector qF dF) =
+    Selector
+        (filterJoinQueries [ qF, qE, qD, qC, qB, qA ])
+        (Json.map6 fn dA dB dC dD dE dF)
+
+
+{-| -}
+map7 : (a -> b -> c -> d -> e -> f -> g -> h) -> Selector a -> Selector b -> Selector c -> Selector d -> Selector e -> Selector f -> Selector g -> Selector h
+map7 fn (Selector qA dA) (Selector qB dB) (Selector qC dC) (Selector qD dD) (Selector qE dE) (Selector qF dF) (Selector qG dG) =
+    Selector
+        (filterJoinQueries [ qG, qF, qE, qD, qC, qB, qA ])
+        (Json.map7 fn dA dB dC dD dE dF dG)
+
+
+{-| -}
+map8 : (a -> b -> c -> d -> e -> f -> g -> h -> i) -> Selector a -> Selector b -> Selector c -> Selector d -> Selector e -> Selector f -> Selector g -> Selector h -> Selector i
+map8 fn (Selector qA dA) (Selector qB dB) (Selector qC dC) (Selector qD dD) (Selector qE dE) (Selector qF dF) (Selector qG dG) (Selector qI dI) =
+    Selector
+        (filterJoinQueries [ qI, qG, qF, qE, qD, qC, qB, qA ])
+        (Json.map8 fn dA dB dC dD dE dF dG dI)
+
+
+{-| Create a selector that depend on previous results.
+Doesn't create depended Selector.
+-}
+andThen : (a -> Selector b) -> Selector a -> Selector b
+andThen fn (Selector query decoder) =
+    Selector query (Json.andThen (toDecoder << fn) decoder)
 
 
 {-| Decode a JSON string into an Elm `String`.
@@ -89,7 +265,7 @@ type Selector a
 -}
 string : Selector String
 string =
-    Selector Nothing Json.string
+    primitive Json.string
 
 
 {-| Decode a JSON string into an Elm `Bool`.
@@ -103,7 +279,7 @@ string =
 -}
 bool : Selector Bool
 bool =
-    Selector Nothing Json.bool
+    primitive Json.bool
 
 
 {-| Decode a JSON number into an Elm `Int`.
@@ -117,7 +293,7 @@ bool =
 -}
 int : Selector Int
 int =
-    Selector Nothing Json.int
+    primitive Json.int
 
 
 {-| Decode a JSON number into an Elm `Float`.
@@ -131,7 +307,58 @@ int =
 -}
 float : Selector Float
 float =
-    Selector Nothing Json.float
+    primitive Json.float
+
+
+{-| Ignore the JSON and produce a certain Elm value.
+
+    decodeString (succeed 42) "true"    == Ok 42
+    decodeString (succeed 42) "[1,2,3]" == Ok 42
+    decodeString (succeed 42) "hello"   == Err ... -- this is not a valid JSON string
+
+    This is handy when used with `oneOf` or `andThen`.
+
+-}
+succeed : a -> Selector a
+succeed =
+    primitive << Json.succeed
+
+
+{-| Ignore the JSON and make the selector fail. This is handy when used with
+`oneOf` or `andThen` where you want to give a custom error message in some
+case.
+
+See the [`andThen`](#andThen) docs for an example.
+
+-}
+fail : String -> Selector a
+fail =
+    primitive << Json.fail
+
+
+{-| Do not do anything with a JSON value, just bring it into Elm as a `Value`.
+This can be useful if you have particularly crazy data that you would like to
+deal with later. Or if you are going to send it out a port and do not care
+about its structure.
+-}
+value : Selector Value
+value =
+    primitive Json.value
+
+
+{-| Decode a `null` value into some Elm value.
+
+    decodeString (null False) "null" == Ok False
+    decodeString (null 42) "null"    == Ok 42
+    decodeString (null 42) "42"      == Err ..
+    decodeString (null 42) "false"   == Err ..
+
+So if you ever see a `null`, this will return whatever value you specified.
+
+-}
+null : a -> Selector a
+null =
+    primitive << Json.null
 
 
 {-| Decode a nullable JSON value into an Elm value.
@@ -143,8 +370,8 @@ float =
 
 -}
 nullable : Selector a -> Selector (Maybe a)
-nullable (Selector query decoder) =
-    Selector query (Json.nullable decoder)
+nullable =
+    container Json.nullable
 
 
 {-| Decode a JSON array into an Elm `List`.
@@ -154,8 +381,8 @@ nullable (Selector query decoder) =
 
 -}
 list : Selector a -> Selector (List a)
-list (Selector query decoder) =
-    Selector query (Json.list decoder)
+list =
+    container Json.list
 
 
 {-| Decode a JSON array into an Elm `Array`.
@@ -165,8 +392,8 @@ list (Selector query decoder) =
 
 -}
 array : Selector a -> Selector (Array a)
-array (Selector query decoder) =
-    Selector query (Json.array decoder)
+array =
+    container Json.array
 
 
 {-| Decode a JSON object into an Elm `Dict`.
@@ -176,8 +403,8 @@ array (Selector query decoder) =
 
 -}
 dict : Selector a -> Selector (Dict String a)
-dict (Selector query decoder) =
-    Selector query (Json.dict decoder)
+dict =
+    container Json.dict
 
 
 {-| Decode a JSON object into an Elm `List` of pairs.
@@ -187,92 +414,8 @@ dict (Selector query decoder) =
 
 -}
 keyValuePairs : Selector a -> Selector (List ( String, a ))
-keyValuePairs (Selector query decoder) =
-    Selector query (Json.keyValuePairs decoder)
-
-
-selector : Maybe String -> String -> List ( String, Argument ) -> Selector a -> Selector (a -> b) -> Selector b
-selector alias name arguments (Selector query1 decoder) (Selector query2 next) =
-    let
-        fieldDecoder =
-            Json.field (Maybe.withDefault name alias) decoder
-
-        fieldOrAlias =
-            case alias of
-                Nothing ->
-                    name
-
-                Just alias ->
-                    alias ++ ":" ++ name
-
-        args =
-            Internal.renderPairsOfArguments arguments
-                |> Maybe.map (Internal.wrap "(" ")")
-                |> Maybe.withDefault ""
-
-        query =
-            case ( query1, query2 ) of
-                ( Nothing, Nothing ) ->
-                    fieldOrAlias ++ args
-
-                ( Nothing, Just prev ) ->
-                    prev ++ " " ++ fieldOrAlias ++ args
-
-                ( Just child, Nothing ) ->
-                    fieldOrAlias ++ args ++ Internal.wrap "{" "}" child
-
-                ( Just child, Just prev ) ->
-                    prev ++ " " ++ fieldOrAlias ++ args ++ Internal.wrap "{" "}" child
-    in
-    Selector (Just query) (Json.map2 (|>) fieldDecoder next)
-
-
-{-| -}
-field : String -> List ( String, Argument ) -> Selector a -> Selector (a -> b) -> Selector b
-field =
-    selector Nothing
-
-
-{-| -}
-aliased : String -> String -> List ( String, Argument ) -> Selector a -> Selector (a -> b) -> Selector b
-aliased =
-    selector << Just
-
-
-{-| -}
-on : List ( String, Selector a ) -> Selector (a -> b) -> Selector b
-on selectors (Selector parentQuery next) =
-    let
-        ( queries, decoders ) =
-            List.foldr
-                (\( entity, Selector query decoder ) (( queries, decoders ) as acc) ->
-                    case query of
-                        Nothing ->
-                            acc
-
-                        Just query ->
-                            ( ("...on " ++ entity ++ Internal.wrap "{" "}" query) :: queries
-                            , decoder :: decoders
-                            )
-                )
-                ( [], [] )
-                selectors
-
-        query =
-            case ( queries, parentQuery ) of
-                ( [], Nothing ) ->
-                    Nothing
-
-                ( [], Just prev ) ->
-                    Just prev
-
-                ( children, Nothing ) ->
-                    Just (String.join " " children)
-
-                ( children, Just prev ) ->
-                    Just (prev ++ " " ++ String.join " " children)
-    in
-    Selector query (Json.map2 (|>) (Json.oneOf decoders) next)
+keyValuePairs =
+    container Json.keyValuePairs
 
 
 {-| Decode a JSON array, requiring a particular index.
@@ -286,17 +429,17 @@ on selectors (Selector parentQuery next) =
 
 -}
 index : Int -> Selector a -> Selector a
-index i (Selector query decoder) =
-    Selector query (Json.index i decoder)
+index i =
+    container (Json.index i)
 
 
 {-| Helpful for dealing with optional fields. Here are a few slightly different examples:
 
     json = """{ "name": "tom", "age": 42 }"""
 
-    decodeString (succeed identity |> field "age" [] (maybe int)) json    == Ok (Just 42)
-    decodeString (succeed identity |> field "name" [] (maybe int)) json   == Ok Nothing
-    decodeString (succeed identity |> field "height" [] (maybe int)) json == Err ...
+    decodeString (field "age" [] (maybe int)) json    == Ok (Just 42)
+    decodeString (field "name" [] (maybe int)) json   == Ok Nothing
+    decodeString (field "height" [] (maybe int)) json == Err ...
 
 Notice the last example!
 It is saying we must have a field named `height` and the content may be a float.
@@ -307,11 +450,66 @@ For optional fields, this means you probably want it outside a use of `field` or
 
 -}
 maybe : Selector a -> Selector (Maybe a)
-maybe (Selector query decoder) =
-    Selector query (Json.maybe decoder)
+maybe =
+    container Json.maybe
 
 
-{-| Try a bunch of different decoders. This can be useful if the JSON may come
+select : Maybe String -> String -> List ( String, Argument ) -> Selector a -> Selector a
+select alias name arguments (Selector childQuery decoder) =
+    let
+        fieldOrAlias =
+            case alias of
+                Nothing ->
+                    name
+
+                Just alias ->
+                    alias ++ ":" ++ name
+
+        args =
+            Internal.renderPairsOfArguments arguments
+                |> Maybe.map (Internal.wrap "(" ")")
+                |> Maybe.withDefault ""
+
+        child =
+            childQuery
+                |> Maybe.map (Internal.wrap "{" "}")
+                |> Maybe.withDefault ""
+    in
+    Selector
+        (Just (fieldOrAlias ++ args ++ child))
+        (Json.field (Maybe.withDefault name alias) decoder)
+
+
+{-| -}
+field : String -> List ( String, Argument ) -> Selector a -> Selector a
+field =
+    select Nothing
+
+
+{-| -}
+aliased : String -> String -> List ( String, Argument ) -> Selector a -> Selector a
+aliased =
+    select << Just
+
+
+{-| -}
+on : List ( String, Selector a ) -> Selector a
+on selectors =
+    let
+        ( queries, decoders ) =
+            selectors
+                |> List.map
+                    (\( entity, Selector query decoder ) ->
+                        ( "...on " ++ entity ++ Internal.wrap "{" "}" (Maybe.withDefault "" query)
+                        , decoder
+                        )
+                    )
+                |> List.unzip
+    in
+    Selector (Just (joinQueries queries)) (Json.oneOf decoders)
+
+
+{-| Try a bunch of different selectors. This can be useful if the JSON may come
 in a couple different formats. For example, say you want to read an array of
 numbers, but some of them are `null`.
 
@@ -331,50 +529,25 @@ then a few older ones that you still support. You could use `andThen` to be
 even more particular if you wanted.
 
 -}
-oneOf : List (Selector a) -> Selector (a -> b) -> Selector b
-oneOf selectors (Selector parentQuery next) =
+oneOf : List (Selector a) -> Selector a
+oneOf selectors =
     let
         ( queries, decoders ) =
-            List.foldr
-                (\(Selector query decoder) ( queries, decoders ) ->
-                    ( query :: queries
-                    , decoder :: decoders
-                    )
-                )
-                ( [], [] )
-                selectors
-
-        query =
-            case ( List.filterMap identity queries, parentQuery ) of
-                ( [], Nothing ) ->
-                    Nothing
-
-                ( [], Just prev ) ->
-                    Just prev
-
-                ( many, Nothing ) ->
-                    Just (String.join " " many)
-
-                ( many, Just prev ) ->
-                    Just (prev ++ " " ++ String.join " " many)
+            selectors
+                |> List.map (\(Selector query decoder) -> ( query, decoder ))
+                |> List.unzip
     in
-    Selector query (Json.map2 (|>) (Json.oneOf decoders) next)
+    Selector (filterJoinQueries queries) (Json.oneOf decoders)
 
 
-{-| A JSON value.
+{-| Render GraphQL representation of Selector.
 -}
-type alias Value =
-    Json.Value
-
-
-{-| Render GraphQL representation from a Selector.
--}
-render : Selector a -> Maybe String
+render : Selector a -> String
 render (Selector query _) =
-    query
+    Maybe.withDefault "" query
 
 
-{-| Build a Decoder from a Selector.
+{-| Build a Decoder of Selector.
 -}
 toDecoder : Selector a -> Decoder a
 toDecoder (Selector _ decoder) =
@@ -389,8 +562,8 @@ This will fail if the string is not well-formed JSON or if the Decoder fails for
 
 -}
 decodeString : Selector a -> String -> Result String a
-decodeString (Selector _ decoder) str =
-    Json.decodeString decoder str
+decodeString selector str =
+    Json.decodeString (toDecoder selector) str
 
 
 {-| Run a Decoder on some JSON Value.
@@ -398,104 +571,5 @@ You can send these JSON values through ports,
 so that is probably the main time you would use this function.
 -}
 decodeValue : Selector a -> Value -> Result String a
-decodeValue (Selector _ decoder) val =
-    Json.decodeValue decoder val
-
-
-{-| Transform a decoder. Maybe you just want to know the length of a string:
-
-    stringLength : Selector Int
-    stringLength =
-        map String.length string
-
-It is often helpful to use `map` with `oneOf`, like when defining `nullable`:
-
-    nullable : Selector a -> Selector (Maybe a)
-    nullable decoder =
-        oneOf
-            [ null Nothing
-            , map Just decoder
-            ]
-
--}
-map : (a -> b) -> Selector a -> Selector b
-map fn (Selector query decoder) =
-    Selector query (Json.map fn decoder)
-
-
-{-| Create decoders that depend on previous results.
-Doesn't create depended Selector.
--}
-andThen : (a -> Selector b) -> Selector a -> Selector b
-andThen fn (Selector query decoder) =
-    Json.andThen
-        (\value ->
-            let
-                (Selector _ next) =
-                    fn value
-            in
-            next
-        )
-        decoder
-        |> Selector query
-
-
-{-| Ignore the JSON and produce a certain Elm value.
-
-    decodeString (succeed 42) "true"    == Ok 42
-    decodeString (succeed 42) "[1,2,3]" == Ok 42
-    decodeString (succeed 42) "hello"   == Err ... -- this is not a valid JSON string
-
-    This is handy when used with `oneOf` or `andThen`.
-
--}
-succeed : a -> Selector a
-succeed =
-    Selector Nothing << Json.succeed
-
-
-{-| Ignore the JSON and make the decoder fail. This is handy when used with
-`oneOf` or `andThen` where you want to give a custom error message in some
-case.
-
-See the [`andThen`](#andThen) docs for an example.
-
--}
-fail : String -> Selector a
-fail =
-    Selector Nothing << Json.fail
-
-
-{-| Do not do anything with a JSON value, just bring it into Elm as a `Value`.
-This can be useful if you have particularly crazy data that you would like to
-deal with later. Or if you are going to send it out a port and do not care
-about its structure.
--}
-value : Selector Value
-value =
-    Selector Nothing Json.value
-
-
-{-| Decode a `null` value into some Elm value.
-
-    decodeString (null False) "null" == Ok False
-    decodeString (null 42) "null"    == Ok 42
-    decodeString (null 42) "42"      == Err ..
-    decodeString (null 42) "false"   == Err ..
-
-So if you ever see a `null`, this will return whatever value you specified.
-
--}
-null : a -> Selector a
-null =
-    Selector Nothing << Json.null
-
-
-{-| An alias for `succeed identity`.
-
-    field "id" [] string singleton
-
--}
-singleton : Selector (a -> a)
-singleton =
-    succeed identity
+decodeValue selector val =
+    Json.decodeValue (toDecoder selector) val
