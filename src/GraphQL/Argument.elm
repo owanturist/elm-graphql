@@ -276,26 +276,26 @@ array =
 toValue : Argument -> Value
 toValue argument =
     case argument of
-        Internal.String string ->
-            Json.string string
+        Internal.String x ->
+            Json.string x
 
-        Internal.Int int ->
-            Json.int int
+        Internal.Int x ->
+            Json.int x
 
-        Internal.Float float ->
-            Json.float float
+        Internal.Float x ->
+            Json.float x
 
-        Internal.Bool bool ->
-            Json.bool bool
+        Internal.Bool x ->
+            Json.bool x
 
         Internal.Null ->
             Json.null
 
         Internal.List listOfArguments ->
-            Json.list (List.map toValue listOfArguments)
+            Json.list toValue listOfArguments
 
         Internal.Array arrayOfArguments ->
-            Json.array (Array.map toValue arrayOfArguments)
+            Json.array toValue arrayOfArguments
 
         Internal.Object objectConfiguration ->
             Json.object (List.map (Tuple.mapSecond toValue) objectConfiguration)

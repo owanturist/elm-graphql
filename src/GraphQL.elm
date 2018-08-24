@@ -54,7 +54,8 @@ import Http
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
 import Task exposing (Task)
-import Time exposing (Time)
+import Time
+import Url
 
 
 {-| -}
@@ -205,7 +206,7 @@ type Request a
         , body : Http.Body
         , decoder : Decoder a
         , dataDecoder : Decoder a -> Decoder a
-        , timeout : Maybe Time
+        , timeout : Maybe Float
         , withCredentials : Bool
         , queryParams : List ( String, String )
         , cacheBuster : Maybe String
@@ -215,19 +216,19 @@ type Request a
 requestBuilder : Bool -> String -> GraphQL a -> Request a
 requestBuilder isGetMethod url graphql =
     let
-        query =
+        graph =
             render graphql
 
         ( method, queryParams, body ) =
             if isGetMethod then
                 ( "GET"
-                , [ ( "query", query ) ]
+                , [ ( "query", graph ) ]
                 , Http.emptyBody
                 )
             else
                 ( "POST"
                 , []
-                , [ ( "query", Encode.string query ) ]
+                , [ ( "query", Encode.string graph ) ]
                     |> Encode.object
                     |> Http.jsonBody
                 )
@@ -305,7 +306,12 @@ withHeader key value (Request builder) =
 -}
 withHeaders : List ( String, String ) -> Request a -> Request a
 withHeaders headerPairs (Request builder) =
-    Request { builder | headers = builder.headers ++ List.map (uncurry Http.header) headerPairs }
+    case List.map (\( key, value ) -> Http.header key value) headerPairs of
+        [] ->
+            Request builder
+
+        newHeaders ->
+            Request { builder | headers = builder.headers ++ newHeaders }
 
 
 {-| Add a bearer token to a request.
@@ -369,7 +375,7 @@ withQueryParams queryParams (Request builder) =
         |> withTimeout (10 * Time.second)
 
 -}
-withTimeout : Time -> Request a -> Request a
+withTimeout : Float -> Request a -> Request a
 withTimeout timeout (Request builder) =
     Request { builder | timeout = Just timeout }
 
@@ -487,14 +493,14 @@ HttpBuilder, including:
 
 -}
 toTask : Request a -> Task Error a
-toTask (Request builder) =
-    case builder.cacheBuster of
+toTask ((Request { cacheBuster }) as request) =
+    case cacheBuster of
         Nothing ->
-            toPlainTask (Request builder)
+            toPlainTask request
 
         Just buster ->
             Time.now
-                |> Task.map (flip (withQueryParam buster) (Request builder) << toString)
+                |> Task.map ((|>) request << withQueryParam buster << String.fromInt << Time.posixToMillis)
                 |> Task.andThen toPlainTask
 
 
@@ -517,7 +523,7 @@ queryPair ( key, value ) =
 
 queryEscape : String -> String
 queryEscape =
-    Http.encodeUri >> replace "%20" "+"
+    Url.percentEncode >> replace "%20" "+"
 
 
 replace : String -> String -> String -> String
