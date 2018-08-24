@@ -220,9 +220,9 @@ Equals to:
     """
 
 -}
-list : List Argument -> Argument
-list =
-    Internal.List
+list : (a -> Argument) -> List a -> Argument
+list argument =
+    Internal.List << List.map argument
 
 
 {-| Pass array of arguments into a graph.
@@ -260,9 +260,9 @@ Equals to:
     """
 
 -}
-array : Array Argument -> Argument
-array =
-    Internal.Array
+array : (a -> Argument) -> Array a -> Argument
+array argument =
+    Internal.Array << Array.map argument
 
 
 {-| Convert `Argument` into `Value`.
@@ -276,26 +276,26 @@ array =
 toValue : Argument -> Value
 toValue argument =
     case argument of
-        Internal.String string ->
-            Json.string string
+        Internal.String x ->
+            Json.string x
 
-        Internal.Int int ->
-            Json.int int
+        Internal.Int x ->
+            Json.int x
 
-        Internal.Float float ->
-            Json.float float
+        Internal.Float x ->
+            Json.float x
 
-        Internal.Bool bool ->
-            Json.bool bool
+        Internal.Bool x ->
+            Json.bool x
 
         Internal.Null ->
             Json.null
 
         Internal.List listOfArguments ->
-            Json.list (List.map toValue listOfArguments)
+            Json.list toValue listOfArguments
 
         Internal.Array arrayOfArguments ->
-            Json.array (Array.map toValue arrayOfArguments)
+            Json.array toValue arrayOfArguments
 
         Internal.Object objectConfiguration ->
             Json.object (List.map (Tuple.mapSecond toValue) objectConfiguration)

@@ -4,7 +4,8 @@ import Array
 import Dict
 import Expect exposing (Expectation)
 import GraphQL.Argument as Argument
-import GraphQL.Selector as Selector exposing ((!>), Selector)
+import GraphQL.Selector as Selector exposing (Error(..), Selector)
+import Json.Encode as Json
 import Test exposing (Test, describe, test)
 
 
@@ -21,6 +22,7 @@ tests =
         , describe "GraphQL.Selector.array" arrayTests
         , describe "GraphQL.Selector.dict" dictTests
         , describe "GraphQL.Selector.keyValuePairs" keyValuePairsTests
+        , describe "GraphQL.Selector.at" atTests
         , describe "GraphQL.Selector.index" indexTests
         , describe "GraphQL.Selector.maybe" maybeTests
         , describe "GraphQL.Selector.oneOf" oneOfTests
@@ -33,6 +35,16 @@ tests =
         ]
 
 
+tuple2 : a -> b -> ( a, b )
+tuple2 a b =
+    ( a, b )
+
+
+tuple3 : a -> b -> c -> ( a, b, c )
+tuple3 a b c =
+    ( a, b, c )
+
+
 structureTests : List Test
 structureTests =
     [ test "Empty graph" <|
@@ -40,20 +52,20 @@ structureTests =
             Selector.string
                 |> Selector.render
                 |> Expect.equal ""
-    , test "Single graph" <|
+    , test "single graph" <|
         \_ ->
             Selector.field "bar" [] Selector.string
                 |> Selector.render
                 |> Expect.equal "bar"
-    , test "Multiple graph" <|
+    , test "multiple graph" <|
         \_ ->
-            Selector.succeed (,,)
-                !> Selector.field "bar" [] Selector.string
-                !> Selector.field "foo" [] Selector.string
-                !> Selector.field "baz" [] Selector.string
+            Selector.succeed tuple3
+                |> Selector.select "bar" [] Selector.string
+                |> Selector.select "foo" [] Selector.string
+                |> Selector.select "baz" [] Selector.string
                 |> Selector.render
                 |> Expect.equal "bar foo baz"
-    , test "Nested graph" <|
+    , test "nested graph" <|
         \_ ->
             Selector.string
                 |> Selector.field "baz" []
@@ -61,27 +73,27 @@ structureTests =
                 |> Selector.field "bar" []
                 |> Selector.render
                 |> Expect.equal "bar{foo{baz}}"
-    , test "Nested multiple graph" <|
+    , test "nested multiple graph" <|
         \_ ->
-            Selector.succeed (,,)
-                !> Selector.field "bar" [] Selector.string
-                !> Selector.field "foo"
+            Selector.succeed tuple3
+                |> Selector.select "bar" [] Selector.string
+                |> Selector.select "foo"
                     []
-                    (Selector.succeed (,,)
-                        !> Selector.field "bar1" [] Selector.string
-                        !> Selector.field "foo1"
+                    (Selector.succeed tuple3
+                        |> Selector.select "bar1" [] Selector.string
+                        |> Selector.select "foo1"
                             []
-                            (Selector.succeed (,,)
-                                !> Selector.field "bar2" [] Selector.string
-                                !> Selector.field "foo2" [] Selector.string
-                                !> Selector.field "baz2" [] Selector.string
+                            (Selector.succeed tuple3
+                                |> Selector.select "bar2" [] Selector.string
+                                |> Selector.select "foo2" [] Selector.string
+                                |> Selector.select "baz2" [] Selector.string
                             )
-                        !> Selector.field "baz1" [] Selector.string
+                        |> Selector.select "baz1" [] Selector.string
                     )
-                !> Selector.field "baz" [] Selector.string
+                |> Selector.select "baz" [] Selector.string
                 |> Selector.render
                 |> Expect.equal "bar foo{bar1 foo1{bar2 foo2 baz2} baz1} baz"
-    , test "Argumented graph" <|
+    , test "argumented graph" <|
         \_ ->
             Selector.field "bar"
                 [ ( "foo", Argument.string "baz" )
@@ -89,7 +101,7 @@ structureTests =
                 Selector.string
                 |> Selector.render
                 |> Expect.equal """bar(foo:"baz")"""
-    , test "Nested argumented graph" <|
+    , test "nested argumented graph" <|
         \_ ->
             Selector.field "bar"
                 [ ( "foo", Argument.string "baz" )
@@ -101,66 +113,66 @@ structureTests =
                 )
                 |> Selector.render
                 |> Expect.equal """bar(foo:"baz"){bar1(foo1:"baz1")}"""
-    , test "Aliased graph" <|
+    , test "aliased graph" <|
         \_ ->
-            Selector.aliased "foo" "bar" [] Selector.string
+            Selector.fieldWithAlias "foo" "bar" [] Selector.string
                 |> Selector.render
                 |> Expect.equal "foo:bar"
-    , test "Aliased argumented graph" <|
+    , test "aliased argumented graph" <|
         \_ ->
-            Selector.aliased "foo"
+            Selector.fieldWithAlias "foo"
                 "bar"
                 [ ( "baz", Argument.int 0 )
                 ]
                 Selector.string
                 |> Selector.render
                 |> Expect.equal "foo:bar(baz:0)"
-    , test "Full graph" <|
+    , test "full graph" <|
         \_ ->
-            Selector.succeed (,,)
-                !> Selector.aliased
+            Selector.succeed tuple3
+                |> Selector.selectWithAlias
                     "bar"
                     "bar_zero"
                     [ ( "str", Argument.string "zero" )
                     , ( "int", Argument.int 0 )
                     ]
                     Selector.string
-                !> Selector.aliased
+                |> Selector.selectWithAlias
                     "foo"
                     "foo_zero"
                     [ ( "str", Argument.string "zero" )
                     , ( "int", Argument.int 0 )
                     ]
-                    (Selector.succeed (,,)
-                        !> Selector.aliased
+                    (Selector.succeed tuple3
+                        |> Selector.selectWithAlias
                             "bar1"
                             "bar_first"
                             [ ( "str", Argument.string "first" )
                             , ( "int", Argument.int 1 )
                             ]
                             Selector.string
-                        !> Selector.aliased
+                        |> Selector.selectWithAlias
                             "foo1"
                             "foo_first"
                             [ ( "str", Argument.string "first" )
                             , ( "int", Argument.int 1 )
                             ]
-                            (Selector.succeed (,,)
-                                !> Selector.aliased
+                            (Selector.succeed tuple3
+                                |> Selector.selectWithAlias
                                     "bar2"
                                     "bar_second"
                                     [ ( "str", Argument.string "second" )
                                     , ( "int", Argument.int 2 )
                                     ]
                                     Selector.string
-                                !> Selector.aliased
+                                |> Selector.selectWithAlias
                                     "foo2"
                                     "foo_second"
                                     [ ( "str", Argument.string "second" )
                                     , ( "int", Argument.int 2 )
                                     ]
                                     Selector.string
-                                !> Selector.aliased
+                                |> Selector.selectWithAlias
                                     "baz2"
                                     "baz_second"
                                     [ ( "str", Argument.string "second" )
@@ -168,7 +180,7 @@ structureTests =
                                     ]
                                     Selector.string
                             )
-                        !> Selector.aliased
+                        |> Selector.selectWithAlias
                             "baz1"
                             "baz_first"
                             [ ( "str", Argument.string "first" )
@@ -176,7 +188,7 @@ structureTests =
                             ]
                             Selector.string
                     )
-                !> Selector.aliased
+                |> Selector.selectWithAlias
                     "baz"
                     "baz_zero"
                     [ ( "str", Argument.string "zero" )
@@ -192,53 +204,69 @@ stringTests : List Test
 stringTests =
     let
         fieldSelector =
-            Selector.succeed (,)
-                !> Selector.field "foo" [] Selector.string
-                !> Selector.field "bar" [] Selector.string
+            Selector.succeed tuple2
+                |> Selector.select "foo" [] Selector.string
+                |> Selector.select "bar" [] Selector.string
     in
     [ test "Invalid source with direct selector" <|
         \_ ->
             """
-                0
-                """
+            0
+            """
                 |> Selector.decodeString Selector.string
-                |> Expect.equal (Err "Expecting a String but instead got: 0")
-    , test "Valid source with direct selector" <|
+                |> Result.mapError Selector.errorToString
+                |> Expect.equal
+                    ("Problem with the given value:\n"
+                        ++ "\n"
+                        ++ "0\n"
+                        ++ "\n"
+                        ++ "Expecting a STRING"
+                        |> Err
+                    )
+    , test "valid source with direct selector" <|
         \_ ->
             """
-                "string value"
-                """
+            "string value"
+            """
                 |> Selector.decodeString Selector.string
                 |> Expect.equal (Ok "string value")
-    , test "Invalid source with field selector" <|
+    , test "invalid source with field selector" <|
         \_ ->
             """
-                {
-                    "foo": false,
-                    "bar": "another value"
-                }
-                """
+            {
+                "foo": false,
+                "bar": "another value"
+            }
+            """
                 |> Selector.decodeString fieldSelector
-                |> Expect.equal (Err "Expecting a String at _.foo but instead got: false")
-    , test "Valid source with field selector" <|
+                |> Result.mapError Selector.errorToString
+                |> Expect.equal
+                    ("Problem with the value at json.foo:\n"
+                        ++ "\n"
+                        ++ "    false\n"
+                        ++ "\n"
+                        ++ "Expecting a STRING"
+                        |> Err
+                    )
+    , test "valid source with field selector" <|
         \_ ->
             """
-                {
-                    "foo": "string value",
-                    "bar": "another value"
-                }
-                """
+            {
+                "foo": "string value",
+                "bar": "another value"
+            }
+            """
                 |> Selector.decodeString fieldSelector
                 |> Expect.equal (Ok ( "string value", "another value" ))
-    , test "Build graph" <|
+    , test "build graph" <|
         \_ ->
             Selector.render Selector.string
                 |> Expect.equal ""
-    , test "Build field graph" <|
+    , test "build field graph" <|
         \_ ->
-            Selector.succeed (,)
-                !> Selector.field "foo" [] Selector.string
-                !> Selector.field "bar" [] Selector.string
+            Selector.succeed tuple2
+                |> Selector.select "foo" [] Selector.string
+                |> Selector.select "bar" [] Selector.string
                 |> Selector.render
                 |> Expect.equal "foo bar"
     ]
@@ -248,53 +276,69 @@ boolTests : List Test
 boolTests =
     let
         fieldSelector =
-            Selector.succeed (,)
-                !> Selector.field "foo" [] Selector.bool
-                !> Selector.field "bar" [] Selector.bool
+            Selector.succeed tuple2
+                |> Selector.select "foo" [] Selector.bool
+                |> Selector.select "bar" [] Selector.bool
     in
     [ test "Invalid source with direct selector" <|
         \_ ->
             """
-                0
-                """
+            0
+            """
                 |> Selector.decodeString Selector.bool
-                |> Expect.equal (Err "Expecting a Bool but instead got: 0")
-    , test "Valid source with direct selector" <|
+                |> Result.mapError Selector.errorToString
+                |> Expect.equal
+                    ("Problem with the given value:\n"
+                        ++ "\n"
+                        ++ "0\n"
+                        ++ "\n"
+                        ++ "Expecting a BOOL"
+                        |> Err
+                    )
+    , test "valid source with direct selector" <|
         \_ ->
             """
-                false
-                """
+            false
+            """
                 |> Selector.decodeString Selector.bool
                 |> Expect.equal (Ok False)
-    , test "Invalid source with field selector" <|
+    , test "invalid source with field selector" <|
         \_ ->
             """
-                {
-                    "foo": "string value",
-                    "bar": true
-                }
-                """
+            {
+                "foo": "string value",
+                "bar": true
+            }
+            """
                 |> Selector.decodeString fieldSelector
-                |> Expect.equal (Err "Expecting a Bool at _.foo but instead got: \"string value\"")
-    , test "Valid source with field selector" <|
+                |> Result.mapError Selector.errorToString
+                |> Expect.equal
+                    ("Problem with the value at json.foo:\n"
+                        ++ "\n"
+                        ++ "    \"string value\"\n"
+                        ++ "\n"
+                        ++ "Expecting a BOOL"
+                        |> Err
+                    )
+    , test "valid source with field selector" <|
         \_ ->
             """
-                {
-                    "foo": true,
-                    "bar": false
-                }
-                """
+            {
+                "foo": true,
+                "bar": false
+            }
+            """
                 |> Selector.decodeString fieldSelector
                 |> Expect.equal (Ok ( True, False ))
-    , test "Build graph" <|
+    , test "build graph" <|
         \_ ->
             Selector.render Selector.bool
                 |> Expect.equal ""
-    , test "Build field graph" <|
+    , test "build field graph" <|
         \_ ->
-            Selector.succeed (,)
-                !> Selector.field "foo" [] Selector.bool
-                !> Selector.field "bar" [] Selector.bool
+            Selector.succeed tuple2
+                |> Selector.select "foo" [] Selector.bool
+                |> Selector.select "bar" [] Selector.bool
                 |> Selector.render
                 |> Expect.equal "foo bar"
     ]
@@ -304,53 +348,69 @@ intTests : List Test
 intTests =
     let
         fieldSelector =
-            Selector.succeed (,)
-                !> Selector.field "foo" [] Selector.int
-                !> Selector.field "bar" [] Selector.int
+            Selector.succeed tuple2
+                |> Selector.select "foo" [] Selector.int
+                |> Selector.select "bar" [] Selector.int
     in
     [ test "Invalid source with direct selector" <|
         \_ ->
             """
-                0.1
-                """
+            0.1
+            """
                 |> Selector.decodeString Selector.int
-                |> Expect.equal (Err "Expecting an Int but instead got: 0.1")
-    , test "Valid source with direct selector" <|
+                |> Result.mapError Selector.errorToString
+                |> Expect.equal
+                    ("Problem with the given value:\n"
+                        ++ "\n"
+                        ++ "0.1\n"
+                        ++ "\n"
+                        ++ "Expecting an INT"
+                        |> Err
+                    )
+    , test "valid source with direct selector" <|
         \_ ->
             """
-                1
-                """
+            1
+            """
                 |> Selector.decodeString Selector.int
                 |> Expect.equal (Ok 1)
-    , test "Invalid source with field selector" <|
+    , test "invalid source with field selector" <|
         \_ ->
             """
-                {
-                    "foo": "string value",
-                    "bar": 0
-                }
-                """
+            {
+                "foo": "string value",
+                "bar": 0
+            }
+            """
                 |> Selector.decodeString fieldSelector
-                |> Expect.equal (Err "Expecting an Int at _.foo but instead got: \"string value\"")
-    , test "Valid source with field selector" <|
+                |> Result.mapError Selector.errorToString
+                |> Expect.equal
+                    ("Problem with the value at json.foo:\n"
+                        ++ "\n"
+                        ++ "    \"string value\"\n"
+                        ++ "\n"
+                        ++ "Expecting an INT"
+                        |> Err
+                    )
+    , test "valid source with field selector" <|
         \_ ->
             """
-                {
-                    "foo": 2,
-                    "bar": 3
-                }
-                """
+            {
+                "foo": 2,
+                "bar": 3
+            }
+            """
                 |> Selector.decodeString fieldSelector
                 |> Expect.equal (Ok ( 2, 3 ))
-    , test "Build graph" <|
+    , test "build graph" <|
         \_ ->
             Selector.render Selector.int
                 |> Expect.equal ""
-    , test "Build field graph" <|
+    , test "build field graph" <|
         \_ ->
-            Selector.succeed (,)
-                !> Selector.field "foo" [] Selector.int
-                !> Selector.field "bar" [] Selector.int
+            Selector.succeed tuple2
+                |> Selector.select "foo" [] Selector.int
+                |> Selector.select "bar" [] Selector.int
                 |> Selector.render
                 |> Expect.equal "foo bar"
     ]
@@ -360,53 +420,69 @@ floatTests : List Test
 floatTests =
     let
         fieldSelector =
-            Selector.succeed (,)
-                !> Selector.field "foo" [] Selector.float
-                !> Selector.field "bar" [] Selector.float
+            Selector.succeed tuple2
+                |> Selector.select "foo" [] Selector.float
+                |> Selector.select "bar" [] Selector.float
     in
     [ test "Invalid source with direct selector" <|
         \_ ->
             """
-                false
-                """
+            false
+            """
                 |> Selector.decodeString Selector.float
-                |> Expect.equal (Err "Expecting a Float but instead got: false")
-    , test "Valid source with direct selector" <|
+                |> Result.mapError Selector.errorToString
+                |> Expect.equal
+                    ("Problem with the given value:\n"
+                        ++ "\n"
+                        ++ "false\n"
+                        ++ "\n"
+                        ++ "Expecting a FLOAT"
+                        |> Err
+                    )
+    , test "valid source with direct selector" <|
         \_ ->
             """
-                1
-                """
+            1
+            """
                 |> Selector.decodeString Selector.float
                 |> Expect.equal (Ok 1)
-    , test "Invalid source with field selector" <|
+    , test "invalid source with field selector" <|
         \_ ->
             """
-                {
-                    "foo": "string value",
-                    "bar": 0
-                }
-                """
+            {
+                "foo": "string value",
+                "bar": 0
+            }
+            """
                 |> Selector.decodeString fieldSelector
-                |> Expect.equal (Err "Expecting a Float at _.foo but instead got: \"string value\"")
-    , test "Valid source with field selector" <|
+                |> Result.mapError Selector.errorToString
+                |> Expect.equal
+                    ("Problem with the value at json.foo:\n"
+                        ++ "\n"
+                        ++ "    \"string value\"\n"
+                        ++ "\n"
+                        ++ "Expecting a FLOAT"
+                        |> Err
+                    )
+    , test "valid source with field selector" <|
         \_ ->
             """
-                {
-                    "foo": 0,
-                    "bar": 3.1
-                }
-                """
+            {
+                "foo": 0,
+                "bar": 3.1
+            }
+            """
                 |> Selector.decodeString fieldSelector
                 |> Expect.equal (Ok ( 0, 3.1 ))
-    , test "Build graph" <|
+    , test "build graph" <|
         \_ ->
             Selector.render Selector.float
                 |> Expect.equal ""
-    , test "Build field graph" <|
+    , test "build field graph" <|
         \_ ->
-            Selector.succeed (,)
-                !> Selector.field "foo" [] Selector.float
-                !> Selector.field "bar" [] Selector.float
+            Selector.succeed tuple2
+                |> Selector.select "foo" [] Selector.float
+                |> Selector.select "bar" [] Selector.float
                 |> Selector.render
                 |> Expect.equal "foo bar"
     ]
@@ -416,77 +492,107 @@ nullableTests : List Test
 nullableTests =
     let
         fieldSelector =
-            Selector.succeed (,)
-                !> Selector.field "foo" [] (Selector.nullable Selector.string)
-                !> Selector.field "bar" [] (Selector.nullable Selector.string)
+            Selector.succeed tuple2
+                |> Selector.select "foo" [] (Selector.nullable Selector.string)
+                |> Selector.select "bar" [] (Selector.nullable Selector.string)
     in
     [ test "Invalid source with direct selector" <|
         \_ ->
             """
-                true
-                """
+            true
+            """
                 |> Selector.decodeString (Selector.nullable Selector.string)
+                |> Result.mapError Selector.errorToString
                 |> Expect.equal
-                    ("I ran into the following problems:\n"
-                        ++ "\nExpecting null but instead got: true"
-                        ++ "\nExpecting a String but instead got: true"
+                    ("Json.Decode.oneOf failed in the following 2 ways:\n"
+                        ++ "\n"
+                        ++ "\n"
+                        ++ "\n"
+                        ++ "(1) Problem with the given value:\n"
+                        ++ "    \n"
+                        ++ "    true\n"
+                        ++ "    \n"
+                        ++ "    Expecting null\n"
+                        ++ "\n"
+                        ++ "\n"
+                        ++ "\n"
+                        ++ "(2) Problem with the given value:\n"
+                        ++ "    \n"
+                        ++ "    true\n"
+                        ++ "    \n"
+                        ++ "    Expecting a STRING"
                         |> Err
                     )
-    , test "Valid nullable source with direct selector" <|
+    , test "valid nullable source with direct selector" <|
         \_ ->
             """
-                null
-                """
+            null
+            """
                 |> Selector.decodeString (Selector.nullable Selector.string)
                 |> Expect.equal (Ok Nothing)
-    , test "Valid source with direct selector" <|
+    , test "valid source with direct selector" <|
         \_ ->
             """
-                "string value"
-                """
+            "string value"
+            """
                 |> Selector.decodeString (Selector.nullable Selector.string)
                 |> Expect.equal (Ok (Just "string value"))
-    , test "Invalid source with field selector" <|
+    , test "invalid source with field selector" <|
         \_ ->
             """
-                {
-                    "foo": 0,
-                    "bar": "string value"
-                }
-                """
+            {
+                "foo": 0,
+                "bar": "string value"
+            }
+            """
                 |> Selector.decodeString fieldSelector
+                |> Result.mapError Selector.errorToString
                 |> Expect.equal
-                    ("I ran into the following problems at _.foo:\n"
-                        ++ "\nExpecting null but instead got: 0"
-                        ++ "\nExpecting a String but instead got: 0"
+                    ("The Json.Decode.oneOf at json.foo failed in the following 2 ways:\n"
+                        ++ "\n"
+                        ++ "\n"
+                        ++ "\n"
+                        ++ "(1) Problem with the given value:\n"
+                        ++ "    \n"
+                        ++ "    0\n"
+                        ++ "    \n"
+                        ++ "    Expecting null\n"
+                        ++ "\n"
+                        ++ "\n"
+                        ++ "\n"
+                        ++ "(2) Problem with the given value:\n"
+                        ++ "    \n"
+                        ++ "    0\n"
+                        ++ "    \n"
+                        ++ "    Expecting a STRING"
                         |> Err
                     )
-    , test "Valid source with field selector" <|
+    , test "valid source with field selector" <|
         \_ ->
             """
-                {
-                    "foo": null,
-                    "bar": "string value"
-                }
-                """
+            {
+                "foo": null,
+                "bar": "string value"
+            }
+            """
                 |> Selector.decodeString fieldSelector
                 |> Expect.equal (Ok ( Nothing, Just "string value" ))
-    , test "Build graph" <|
+    , test "build graph" <|
         \_ ->
             Selector.render (Selector.nullable Selector.string)
                 |> Expect.equal ""
-    , test "Build field graph" <|
+    , test "build field graph" <|
         \_ ->
-            Selector.succeed (,)
-                !> Selector.field "foo" [] (Selector.nullable Selector.string)
-                !> Selector.field "bar" [] (Selector.nullable Selector.string)
+            Selector.succeed tuple2
+                |> Selector.select "foo" [] (Selector.nullable Selector.string)
+                |> Selector.select "bar" [] (Selector.nullable Selector.string)
                 |> Selector.render
                 |> Expect.equal "foo bar"
-    , test "Build field nested graph" <|
+    , test "build field nested graph" <|
         \_ ->
-            Selector.succeed (,)
-                !> Selector.field "foo" [] (Selector.nullable Selector.string)
-                !> Selector.field "bar" [] (Selector.field "baz" [] (Selector.nullable Selector.string))
+            Selector.succeed tuple2
+                |> Selector.select "foo" [] (Selector.nullable Selector.string)
+                |> Selector.select "bar" [] (Selector.field "baz" [] (Selector.nullable Selector.string))
                 |> Selector.render
                 |> Expect.equal "foo bar{baz}"
     ]
@@ -496,67 +602,91 @@ listTests : List Test
 listTests =
     let
         fieldSelector =
-            Selector.succeed (,)
-                !> Selector.field "foo" [] (Selector.list Selector.bool)
-                !> Selector.field "bar" [] (Selector.list Selector.int)
+            Selector.succeed tuple2
+                |> Selector.select "foo" [] (Selector.list Selector.bool)
+                |> Selector.select "bar" [] (Selector.list Selector.int)
     in
     [ test "Invalid source with direct selector" <|
         \_ ->
             """
-                true
-                """
+            true
+            """
                 |> Selector.decodeString (Selector.list Selector.string)
-                |> Expect.equal (Err "Expecting a List but instead got: true")
-    , test "Invalid source items with direct selector" <|
+                |> Result.mapError Selector.errorToString
+                |> Expect.equal
+                    ("Problem with the given value:\n"
+                        ++ "\n"
+                        ++ "true\n"
+                        ++ "\n"
+                        ++ "Expecting a LIST"
+                        |> Err
+                    )
+    , test "invalid source items with direct selector" <|
         \_ ->
             """
-                ["first", 0, "second"]
-                """
+            ["first", 0, "second"]
+            """
                 |> Selector.decodeString (Selector.list Selector.string)
-                |> Expect.equal (Err "Expecting a String at _[1] but instead got: 0")
-    , test "Valid source with direct selector" <|
+                |> Result.mapError Selector.errorToString
+                |> Expect.equal
+                    ("Problem with the value at json[1]:\n"
+                        ++ "\n"
+                        ++ "    0\n"
+                        ++ "\n"
+                        ++ "Expecting a STRING"
+                        |> Err
+                    )
+    , test "valid source with direct selector" <|
         \_ ->
             """
-                ["first", "second"]
-                """
+            ["first", "second"]
+            """
                 |> Selector.decodeString (Selector.list Selector.string)
                 |> Expect.equal (Ok [ "first", "second" ])
-    , test "Invalid source with field selector" <|
+    , test "invalid source with field selector" <|
         \_ ->
             """
-                {
-                    "foo": 0,
-                    "bar": [1, 0]
-                }
-                """
+            {
+                "foo": 0,
+                "bar": [1, 0]
+            }
+            """
                 |> Selector.decodeString fieldSelector
-                |> Expect.equal (Err "Expecting a List at _.foo but instead got: 0")
-    , test "Valid source with field selector" <|
+                |> Result.mapError Selector.errorToString
+                |> Expect.equal
+                    ("Problem with the value at json.foo:\n"
+                        ++ "\n"
+                        ++ "    0\n"
+                        ++ "\n"
+                        ++ "Expecting a LIST"
+                        |> Err
+                    )
+    , test "valid source with field selector" <|
         \_ ->
             """
-                {
-                    "foo": [true, false, false],
-                    "bar": [1, 2, 0]
-                }
-                """
+            {
+                "foo": [true, false, false],
+                "bar": [1, 2, 0]
+            }
+            """
                 |> Selector.decodeString fieldSelector
                 |> Expect.equal (Ok ( [ True, False, False ], [ 1, 2, 0 ] ))
-    , test "Build graph" <|
+    , test "build graph" <|
         \_ ->
             Selector.render (Selector.list Selector.string)
                 |> Expect.equal ""
-    , test "Build field graph" <|
+    , test "build field graph" <|
         \_ ->
-            Selector.succeed (,)
-                !> Selector.field "foo" [] (Selector.list Selector.string)
-                !> Selector.field "bar" [] (Selector.list Selector.string)
+            Selector.succeed tuple2
+                |> Selector.select "foo" [] (Selector.list Selector.string)
+                |> Selector.select "bar" [] (Selector.list Selector.string)
                 |> Selector.render
                 |> Expect.equal "foo bar"
-    , test "Build field nested graph" <|
+    , test "build field nested graph" <|
         \_ ->
-            Selector.succeed (,)
-                !> Selector.field "foo" [] (Selector.list Selector.string)
-                !> Selector.field "bar" [] (Selector.field "baz" [] (Selector.list Selector.string))
+            Selector.succeed tuple2
+                |> Selector.select "foo" [] (Selector.list Selector.string)
+                |> Selector.select "bar" [] (Selector.field "baz" [] (Selector.list Selector.string))
                 |> Selector.render
                 |> Expect.equal "foo bar{baz}"
     ]
@@ -566,49 +696,73 @@ arrayTests : List Test
 arrayTests =
     let
         fieldSelector =
-            Selector.succeed (,)
-                !> Selector.field "foo" [] (Selector.array Selector.bool)
-                !> Selector.field "bar" [] (Selector.array Selector.int)
+            Selector.succeed tuple2
+                |> Selector.select "foo" [] (Selector.array Selector.bool)
+                |> Selector.select "bar" [] (Selector.array Selector.int)
     in
     [ test "Invalid source with direct selector" <|
         \_ ->
             """
-                true
-                """
+            true
+            """
                 |> Selector.decodeString (Selector.array Selector.string)
-                |> Expect.equal (Err "Expecting an Array but instead got: true")
-    , test "Invalid source items with direct selector" <|
+                |> Result.mapError Selector.errorToString
+                |> Expect.equal
+                    ("Problem with the given value:\n"
+                        ++ "\n"
+                        ++ "true\n"
+                        ++ "\n"
+                        ++ "Expecting an ARRAY"
+                        |> Err
+                    )
+    , test "invalid source items with direct selector" <|
         \_ ->
             """
-                ["first", 0, "second"]
-                """
+            ["first", 0, "second"]
+            """
                 |> Selector.decodeString (Selector.array Selector.string)
-                |> Expect.equal (Err "Expecting a String at _[1] but instead got: 0")
-    , test "Valid source with direct selector" <|
+                |> Result.mapError Selector.errorToString
+                |> Expect.equal
+                    ("Problem with the value at json[1]:\n"
+                        ++ "\n"
+                        ++ "    0\n"
+                        ++ "\n"
+                        ++ "Expecting a STRING"
+                        |> Err
+                    )
+    , test "valid source with direct selector" <|
         \_ ->
             """
-                ["first", "second"]
-                """
+            ["first", "second"]
+            """
                 |> Selector.decodeString (Selector.array Selector.string)
                 |> Expect.equal (Ok (Array.fromList [ "first", "second" ]))
-    , test "Invalid source with field selector" <|
+    , test "invalid source with field selector" <|
         \_ ->
             """
-                {
-                    "foo": 0,
-                    "bar": [1, 0]
-                }
-                """
+            {
+                "foo": 0,
+                "bar": [1, 0]
+            }
+            """
                 |> Selector.decodeString fieldSelector
-                |> Expect.equal (Err "Expecting an Array at _.foo but instead got: 0")
-    , test "Valid source with field selector" <|
+                |> Result.mapError Selector.errorToString
+                |> Expect.equal
+                    ("Problem with the value at json.foo:\n"
+                        ++ "\n"
+                        ++ "    0\n"
+                        ++ "\n"
+                        ++ "Expecting an ARRAY"
+                        |> Err
+                    )
+    , test "valid source with field selector" <|
         \_ ->
             """
-                {
-                    "foo": [true, false, false],
-                    "bar": [1, 2, 0]
-                }
-                """
+            {
+                "foo": [true, false, false],
+                "bar": [1, 2, 0]
+            }
+            """
                 |> Selector.decodeString fieldSelector
                 |> Expect.equal
                     (Ok
@@ -616,22 +770,22 @@ arrayTests =
                         , Array.fromList [ 1, 2, 0 ]
                         )
                     )
-    , test "Build graph" <|
+    , test "build graph" <|
         \_ ->
             Selector.render (Selector.array Selector.string)
                 |> Expect.equal ""
-    , test "Build field graph" <|
+    , test "build field graph" <|
         \_ ->
-            Selector.succeed (,)
-                !> Selector.field "foo" [] (Selector.array Selector.string)
-                !> Selector.field "bar" [] (Selector.array Selector.string)
+            Selector.succeed tuple2
+                |> Selector.select "foo" [] (Selector.array Selector.string)
+                |> Selector.select "bar" [] (Selector.array Selector.string)
                 |> Selector.render
                 |> Expect.equal "foo bar"
-    , test "Build field nested graph" <|
+    , test "build field nested graph" <|
         \_ ->
-            Selector.succeed (,)
-                !> Selector.field "foo" [] (Selector.array Selector.string)
-                !> Selector.field "bar" [] (Selector.field "baz" [] (Selector.array Selector.string))
+            Selector.succeed tuple2
+                |> Selector.select "foo" [] (Selector.array Selector.string)
+                |> Selector.select "bar" [] (Selector.field "baz" [] (Selector.array Selector.string))
                 |> Selector.render
                 |> Expect.equal "foo bar{baz}"
     ]
@@ -641,36 +795,53 @@ dictTests : List Test
 dictTests =
     let
         fieldSelector =
-            Selector.succeed (,)
-                !> Selector.field "foo" [] (Selector.dict Selector.bool)
-                !> Selector.field "bar" [] (Selector.dict Selector.int)
+            Selector.succeed tuple2
+                |> Selector.select "foo" [] (Selector.dict Selector.bool)
+                |> Selector.select "bar" [] (Selector.dict Selector.int)
     in
     [ test "Invalid source with direct selector" <|
         \_ ->
             """
-                [true]
-                """
-                |> Selector.decodeString (Selector.dict Selector.string)
-                |> Expect.equal (Err "Expecting an object but instead got: [true]")
-    , test "Invalid source items with direct selector" <|
-        \_ ->
+            [true]
             """
-                {
-                    "key1": true,
-                    "key2": "string value"
-                }
-                """
                 |> Selector.decodeString (Selector.dict Selector.string)
+                |> Result.mapError Selector.errorToString
                 |> Expect.equal
-                    (Err "Expecting a String at _.key1 but instead got: true")
-    , test "Valid source with direct selector" <|
+                    ("Problem with the given value:\n"
+                        ++ "\n"
+                        ++ "[\n"
+                        ++ "        true\n"
+                        ++ "    ]\n"
+                        ++ "\n"
+                        ++ "Expecting an OBJECT"
+                        |> Err
+                    )
+    , test "invalid source items with direct selector" <|
         \_ ->
             """
-                {
-                    "key1": "value 1",
-                    "key2": "value 2"
-                }
-                """
+            {
+                "key1": true,
+                "key2": "string value"
+            }
+            """
+                |> Selector.decodeString (Selector.dict Selector.string)
+                |> Result.mapError Selector.errorToString
+                |> Expect.equal
+                    ("Problem with the value at json.key1:\n"
+                        ++ "\n"
+                        ++ "    true\n"
+                        ++ "\n"
+                        ++ "Expecting a STRING"
+                        |> Err
+                    )
+    , test "valid source with direct selector" <|
+        \_ ->
+            """
+            {
+                "key1": "value 1",
+                "key2": "value 2"
+            }
+            """
                 |> Selector.decodeString (Selector.dict Selector.string)
                 |> Expect.equal
                     ([ ( "key1", "value 1" )
@@ -679,33 +850,41 @@ dictTests =
                         |> Dict.fromList
                         |> Ok
                     )
-    , test "Invalid source with field selector" <|
+    , test "invalid source with field selector" <|
         \_ ->
             """
-                {
-                    "foo": 0,
-                    "bar": {
-                        "key1": 1,
-                        "key2": 2
-                    }
+            {
+                "foo": 0,
+                "bar": {
+                    "key1": 1,
+                    "key2": 2
                 }
-                """
+            }
+            """
                 |> Selector.decodeString fieldSelector
-                |> Expect.equal (Err "Expecting an object at _.foo but instead got: 0")
-    , test "Valid source with field selector" <|
+                |> Result.mapError Selector.errorToString
+                |> Expect.equal
+                    ("Problem with the value at json.foo:\n"
+                        ++ "\n"
+                        ++ "    0\n"
+                        ++ "\n"
+                        ++ "Expecting an OBJECT"
+                        |> Err
+                    )
+    , test "valid source with field selector" <|
         \_ ->
             """
-                {
-                    "foo": {
-                        "key1": true,
-                        "key2": false
-                    },
-                    "bar": {
-                        "key3": 3,
-                        "key4": 4
-                    }
+            {
+                "foo": {
+                    "key1": true,
+                    "key2": false
+                },
+                "bar": {
+                    "key3": 3,
+                    "key4": 4
                 }
-                """
+            }
+            """
                 |> Selector.decodeString fieldSelector
                 |> Expect.equal
                     (Ok
@@ -719,22 +898,22 @@ dictTests =
                             ]
                         )
                     )
-    , test "Build graph" <|
+    , test "build graph" <|
         \_ ->
             Selector.render (Selector.dict Selector.string)
                 |> Expect.equal ""
-    , test "Build field graph" <|
+    , test "build field graph" <|
         \_ ->
-            Selector.succeed (,)
-                !> Selector.field "foo" [] (Selector.dict Selector.string)
-                !> Selector.field "bar" [] (Selector.dict Selector.string)
+            Selector.succeed tuple2
+                |> Selector.select "foo" [] (Selector.dict Selector.string)
+                |> Selector.select "bar" [] (Selector.dict Selector.string)
                 |> Selector.render
                 |> Expect.equal "foo bar"
-    , test "Build field nested graph" <|
+    , test "build field nested graph" <|
         \_ ->
-            Selector.succeed (,)
-                !> Selector.field "foo" [] (Selector.dict Selector.string)
-                !> Selector.field "bar" [] (Selector.field "baz" [] (Selector.dict Selector.string))
+            Selector.succeed tuple2
+                |> Selector.select "foo" [] (Selector.dict Selector.string)
+                |> Selector.select "bar" [] (Selector.field "baz" [] (Selector.dict Selector.string))
                 |> Selector.render
                 |> Expect.equal "foo bar{baz}"
     ]
@@ -744,99 +923,252 @@ keyValuePairsTests : List Test
 keyValuePairsTests =
     let
         fieldSelector =
-            Selector.succeed (,)
-                !> Selector.field "foo" [] (Selector.keyValuePairs Selector.bool)
-                !> Selector.field "bar" [] (Selector.keyValuePairs Selector.int)
+            Selector.succeed tuple2
+                |> Selector.select "foo" [] (Selector.keyValuePairs Selector.bool)
+                |> Selector.select "bar" [] (Selector.keyValuePairs Selector.int)
     in
     [ test "Invalid source with direct selector" <|
         \_ ->
             """
-                [true]
-                """
-                |> Selector.decodeString (Selector.keyValuePairs Selector.string)
-                |> Expect.equal (Err "Expecting an object but instead got: [true]")
-    , test "Invalid source items with direct selector" <|
-        \_ ->
+            [true]
             """
-                {
-                    "key1": true,
-                    "key2": "string value"
-                }
-                """
                 |> Selector.decodeString (Selector.keyValuePairs Selector.string)
+                |> Result.mapError Selector.errorToString
                 |> Expect.equal
-                    (Err "Expecting a String at _.key1 but instead got: true")
-    , test "Valid source with direct selector" <|
+                    ("Problem with the given value:\n"
+                        ++ "\n"
+                        ++ "[\n"
+                        ++ "        true\n"
+                        ++ "    ]\n"
+                        ++ "\n"
+                        ++ "Expecting an OBJECT"
+                        |> Err
+                    )
+    , test "invalid source items with direct selector" <|
         \_ ->
             """
-                {
-                    "key1": "value 1",
-                    "key2": "value 2"
-                }
-                """
+            {
+                "key1": true,
+                "key2": "string value"
+            }
+            """
+                |> Selector.decodeString (Selector.keyValuePairs Selector.string)
+                |> Result.mapError Selector.errorToString
+                |> Expect.equal
+                    ("Problem with the value at json.key1:\n"
+                        ++ "\n"
+                        ++ "    true\n"
+                        ++ "\n"
+                        ++ "Expecting a STRING"
+                        |> Err
+                    )
+    , test "valid source with direct selector" <|
+        \_ ->
+            """
+            {
+                "key1": "value 1",
+                "key2": "value 2"
+            }
+            """
                 |> Selector.decodeString (Selector.keyValuePairs Selector.string)
                 |> Expect.equal
                     (Ok
-                        [ ( "key2", "value 2" )
-                        , ( "key1", "value 1" )
+                        [ ( "key1", "value 1" )
+                        , ( "key2", "value 2" )
                         ]
                     )
-    , test "Invalid source with field selector" <|
+    , test "invalid source with field selector" <|
         \_ ->
             """
-                {
-                    "foo": 0,
-                    "bar": {
-                        "key1": 1,
-                        "key2": 2
-                    }
+            {
+                "foo": 0,
+                "bar": {
+                    "key1": 1,
+                    "key2": 2
                 }
-                """
+            }
+            """
                 |> Selector.decodeString fieldSelector
-                |> Expect.equal (Err "Expecting an object at _.foo but instead got: 0")
-    , test "Valid source with field selector" <|
+                |> Result.mapError Selector.errorToString
+                |> Expect.equal
+                    ("Problem with the value at json.foo:\n"
+                        ++ "\n"
+                        ++ "    0\n"
+                        ++ "\n"
+                        ++ "Expecting an OBJECT"
+                        |> Err
+                    )
+    , test "valid source with field selector" <|
         \_ ->
             """
-                {
-                    "foo": {
-                        "key1": true,
-                        "key2": false
-                    },
-                    "bar": {
-                        "key3": 3,
-                        "key4": 4
-                    }
+            {
+                "foo": {
+                    "key1": true,
+                    "key2": false
+                },
+                "bar": {
+                    "key3": 3,
+                    "key4": 4
                 }
-                """
+            }
+            """
                 |> Selector.decodeString fieldSelector
                 |> Expect.equal
                     (Ok
-                        ( [ ( "key2", False )
-                          , ( "key1", True )
+                        ( [ ( "key1", True )
+                          , ( "key2", False )
                           ]
-                        , [ ( "key4", 4 )
-                          , ( "key3", 3 )
+                        , [ ( "key3", 3 )
+                          , ( "key4", 4 )
                           ]
                         )
                     )
-    , test "Build graph" <|
+    , test "build graph" <|
         \_ ->
             Selector.render (Selector.keyValuePairs Selector.string)
                 |> Expect.equal ""
-    , test "Build field graph" <|
+    , test "build field graph" <|
         \_ ->
-            Selector.succeed (,)
-                !> Selector.field "foo" [] (Selector.keyValuePairs Selector.string)
-                !> Selector.field "bar" [] (Selector.keyValuePairs Selector.string)
+            Selector.succeed tuple2
+                |> Selector.select "foo" [] (Selector.keyValuePairs Selector.string)
+                |> Selector.select "bar" [] (Selector.keyValuePairs Selector.string)
                 |> Selector.render
                 |> Expect.equal "foo bar"
-    , test "Build field nested graph" <|
+    , test "build field nested graph" <|
         \_ ->
-            Selector.succeed (,)
-                !> Selector.field "foo" [] (Selector.keyValuePairs Selector.string)
-                !> Selector.field "bar" [] (Selector.field "baz" [] (Selector.keyValuePairs Selector.string))
+            Selector.succeed tuple2
+                |> Selector.select "foo" [] (Selector.keyValuePairs Selector.string)
+                |> Selector.select "bar" [] (Selector.field "baz" [] (Selector.keyValuePairs Selector.string))
                 |> Selector.render
                 |> Expect.equal "foo bar{baz}"
+    ]
+
+
+atEmptyPathTests : List Test
+atEmptyPathTests =
+    let
+        selector =
+            Selector.at [] Selector.bool
+    in
+    [ test "invalid source with empty path" <|
+        \_ ->
+            """
+            0
+            """
+                |> Selector.decodeString selector
+                |> Result.mapError Selector.errorToString
+                |> Expect.equal
+                    ("Problem with the given value:\n"
+                        ++ "\n"
+                        ++ "0\n"
+                        ++ "\n"
+                        ++ "Expecting a BOOL"
+                        |> Err
+                    )
+    , test "valid source with empty path" <|
+        \_ ->
+            """
+            true
+            """
+                |> Selector.decodeString selector
+                |> Expect.equal (Ok True)
+    , test "graph" <|
+        \_ ->
+            selector
+                |> Selector.render
+                |> Expect.equal ""
+    ]
+
+
+atSingletonPathTests : List Test
+atSingletonPathTests =
+    let
+        selector =
+            Selector.at [ "foo" ] Selector.bool
+    in
+    [ test "invalid source with empty path" <|
+        \_ ->
+            """
+            {
+                "foo": 0
+            }
+            """
+                |> Selector.decodeString selector
+                |> Result.mapError Selector.errorToString
+                |> Expect.equal
+                    ("Problem with the value at json.foo:\n"
+                        ++ "\n"
+                        ++ "    0\n"
+                        ++ "\n"
+                        ++ "Expecting a BOOL"
+                        |> Err
+                    )
+    , test "valid source with empty path" <|
+        \_ ->
+            """
+            {
+                "foo": true
+            }
+            """
+                |> Selector.decodeString selector
+                |> Expect.equal (Ok True)
+    , test "graph" <|
+        \_ ->
+            selector
+                |> Selector.render
+                |> Expect.equal "foo"
+    ]
+
+
+atLongPathTests : List Test
+atLongPathTests =
+    let
+        selector =
+            Selector.at [ "foo", "bar" ] Selector.bool
+    in
+    [ test "invalid source with empty path" <|
+        \_ ->
+            """
+            {
+                "foo": {
+                    "bar": 0
+                }
+            }
+            """
+                |> Selector.decodeString selector
+                |> Result.mapError Selector.errorToString
+                |> Expect.equal
+                    ("Problem with the value at json.foo.bar:\n"
+                        ++ "\n"
+                        ++ "    0\n"
+                        ++ "\n"
+                        ++ "Expecting a BOOL"
+                        |> Err
+                    )
+    , test "valid source with empty path" <|
+        \_ ->
+            """
+            {
+                "foo": {
+                    "bar": true
+                }
+            }
+            """
+                |> Selector.decodeString selector
+                |> Expect.equal (Ok True)
+    , test "graph" <|
+        \_ ->
+            selector
+                |> Selector.render
+                |> Expect.equal "foo{bar}"
+    ]
+
+
+atTests : List Test
+atTests =
+    [ describe "empty path" atEmptyPathTests
+    , describe "singleton path" atSingletonPathTests
+    , describe "long path" atLongPathTests
     ]
 
 
@@ -844,71 +1176,91 @@ indexTests : List Test
 indexTests =
     let
         fieldSelector =
-            Selector.succeed (,)
-                !> Selector.field "foo" [] (Selector.index 0 Selector.int)
-                !> Selector.field "bar" [] (Selector.index 1 Selector.string)
+            Selector.succeed tuple2
+                |> Selector.select "foo" [] (Selector.index 0 Selector.int)
+                |> Selector.select "bar" [] (Selector.index 1 Selector.string)
     in
     [ test "Invalid source with direct selector" <|
         \_ ->
             """
-                true
-                """
-                |> Selector.decodeString (Selector.index 1 Selector.string)
-                |> Expect.equal (Err "Expecting an array but instead got: true")
-    , test "Valid short source with direct selector" <|
-        \_ ->
+            true
             """
-                []
-                """
-                |> Selector.decodeString (Selector.index 0 Selector.string)
+                |> Selector.decodeString (Selector.index 1 Selector.string)
+                |> Result.mapError Selector.errorToString
                 |> Expect.equal
-                    ("Expecting a longer array. "
-                        ++ "Need index 0 but there are only 0 entries but instead got: []"
+                    ("Problem with the given value:\n"
+                        ++ "\n"
+                        ++ "true\n"
+                        ++ "\n"
+                        ++ "Expecting an ARRAY"
                         |> Err
                     )
-    , test "Valid source with direct selector" <|
+    , test "valid short source with direct selector" <|
         \_ ->
             """
-                [null, "string value"]
-                """
+            []
+            """
+                |> Selector.decodeString (Selector.index 0 Selector.string)
+                |> Result.mapError Selector.errorToString
+                |> Expect.equal
+                    ("Problem with the given value:\n"
+                        ++ "\n"
+                        ++ "[]\n"
+                        ++ "\n"
+                        ++ "Expecting a LONGER array. Need index 0 but only see 0 entries"
+                        |> Err
+                    )
+    , test "valid source with direct selector" <|
+        \_ ->
+            """
+            [null, "string value"]
+            """
                 |> Selector.decodeString (Selector.index 1 Selector.string)
                 |> Expect.equal (Ok "string value")
-    , test "Invalid source with field selector" <|
+    , test "invalid source with field selector" <|
         \_ ->
             """
-                {
-                    "foo": 0,
-                    "bar": [true, "string value", null, 1]
-                }
-                """
+            {
+                "foo": 0,
+                "bar": [true, "string value", null, 1]
+            }
+            """
                 |> Selector.decodeString fieldSelector
-                |> Expect.equal (Err "Expecting an array at _.foo but instead got: 0")
-    , test "Valid source with field selector" <|
+                |> Result.mapError Selector.errorToString
+                |> Expect.equal
+                    ("Problem with the value at json.foo:\n"
+                        ++ "\n"
+                        ++ "    0\n"
+                        ++ "\n"
+                        ++ "Expecting an ARRAY"
+                        |> Err
+                    )
+    , test "valid source with field selector" <|
         \_ ->
             """
-                {
-                    "foo": [0, null, "string", false],
-                    "bar": [true, "string value", null, 1]
-                }
-                """
+            {
+                "foo": [0, null, "string", false],
+                "bar": [true, "string value", null, 1]
+            }
+            """
                 |> Selector.decodeString fieldSelector
                 |> Expect.equal (Ok ( 0, "string value" ))
-    , test "Build graph" <|
+    , test "build graph" <|
         \_ ->
             Selector.render (Selector.index 0 Selector.string)
                 |> Expect.equal ""
-    , test "Build field graph" <|
+    , test "build field graph" <|
         \_ ->
-            Selector.succeed (,)
-                !> Selector.field "foo" [] (Selector.index 0 Selector.string)
-                !> Selector.field "bar" [] (Selector.index 0 Selector.string)
+            Selector.succeed tuple2
+                |> Selector.select "foo" [] (Selector.index 0 Selector.string)
+                |> Selector.select "bar" [] (Selector.index 0 Selector.string)
                 |> Selector.render
                 |> Expect.equal "foo bar"
-    , test "Build field nested graph" <|
+    , test "build field nested graph" <|
         \_ ->
-            Selector.succeed (,)
-                !> Selector.field "foo" [] (Selector.index 0 Selector.string)
-                !> Selector.field "bar" [] (Selector.field "baz" [] (Selector.index 0 Selector.string))
+            Selector.succeed tuple2
+                |> Selector.select "foo" [] (Selector.index 0 Selector.string)
+                |> Selector.select "bar" [] (Selector.field "baz" [] (Selector.index 0 Selector.string))
                 |> Selector.render
                 |> Expect.equal "foo bar{baz}"
     ]
@@ -928,44 +1280,56 @@ maybeTests =
     in
     [ test "Valid type of existing field" <|
         \_ ->
-            Selector.maybe Selector.int
-                |> Selector.field "age" []
-                |> flip Selector.decodeString json
+            Selector.decodeString
+                (Selector.field "age" [] (Selector.maybe Selector.int))
+                json
                 |> Expect.equal (Ok (Just 42))
-    , test "Invalid type of existing field" <|
+    , test "invalid type of existing field" <|
         \_ ->
-            Selector.maybe Selector.int
-                |> Selector.field "name" []
-                |> flip Selector.decodeString json
+            Selector.decodeString
+                (Selector.field "name" [] (Selector.maybe Selector.int))
+                json
                 |> Expect.equal (Ok Nothing)
-    , test "Null type of existing field" <|
+    , test "null type of existing field" <|
         \_ ->
-            Selector.maybe Selector.int
-                |> Selector.field "status" []
-                |> flip Selector.decodeString json
+            Selector.decodeString
+                (Selector.field "status" [] (Selector.maybe Selector.int))
+                json
                 |> Expect.equal (Ok Nothing)
-    , test "Not existing field" <|
+    , test "not existing field" <|
         \_ ->
-            Selector.maybe Selector.int
-                |> Selector.field "height" []
-                |> flip Selector.decodeString json
-                |> Expect.equal (Err """Expecting an object with a field named `height` but instead got: {"name":"tom","age":42,"status":null}""")
-    , test "Build graph" <|
+            Selector.decodeString
+                (Selector.field "height" [] (Selector.maybe Selector.int))
+                json
+                |> Result.mapError Selector.errorToString
+                |> Expect.equal
+                    ("Problem with the given value:\n"
+                        ++ "\n"
+                        ++ "{\n"
+                        ++ "        \"name\": \"tom\",\n"
+                        ++ "        \"age\": 42,\n"
+                        ++ "        \"status\": null\n"
+                        ++ "    }\n"
+                        ++ "\n"
+                        ++ "Expecting an OBJECT with a field named `height`"
+                        |> Err
+                    )
+    , test "build graph" <|
         \_ ->
             Selector.render (Selector.maybe Selector.string)
                 |> Expect.equal ""
-    , test "Build field graph" <|
+    , test "build field graph" <|
         \_ ->
-            Selector.succeed (,)
-                !> Selector.field "foo" [] (Selector.maybe Selector.string)
-                !> Selector.field "bar" [] (Selector.maybe Selector.string)
+            Selector.succeed tuple2
+                |> Selector.select "foo" [] (Selector.maybe Selector.string)
+                |> Selector.select "bar" [] (Selector.maybe Selector.string)
                 |> Selector.render
                 |> Expect.equal "foo bar"
-    , test "Build field nested graph" <|
+    , test "build field nested graph" <|
         \_ ->
-            Selector.succeed (,)
-                !> Selector.field "foo" [] (Selector.maybe Selector.string)
-                !> Selector.field "bar" [] (Selector.field "baz" [] (Selector.maybe Selector.string))
+            Selector.succeed tuple2
+                |> Selector.select "foo" [] (Selector.maybe Selector.string)
+                |> Selector.select "bar" [] (Selector.field "baz" [] (Selector.maybe Selector.string))
                 |> Selector.render
                 |> Expect.equal "foo bar{baz}"
     ]
@@ -983,7 +1347,8 @@ oneOfEmptyTests =
             "string value"
             """
                 |> Selector.decodeString selector
-                |> Expect.equal (Err "I ran into the following problems:\n\n")
+                |> Result.mapError Selector.errorToString
+                |> Expect.equal (Err "Ran into a Json.Decode.oneOf with no possibilities!")
     , test "graph" <|
         \_ ->
             Selector.render selector
@@ -1005,9 +1370,13 @@ oneOfSingleNonFieldTests =
             0
             """
                 |> Selector.decodeString selector
+                |> Result.mapError Selector.errorToString
                 |> Expect.equal
-                    ("I ran into the following problems:\n"
-                        ++ "\nExpecting a String but instead got: 0"
+                    ("Problem with the given value:\n"
+                        ++ "\n"
+                        ++ "0\n"
+                        ++ "\n"
+                        ++ "Expecting a STRING"
                         |> Err
                     )
     , test "valid source" <|
@@ -1039,20 +1408,35 @@ oneOfMultipleNonFieldTests =
             {}
             """
                 |> Selector.decodeString selector
+                |> Result.mapError Selector.errorToString
                 |> Expect.equal
-                    ("I ran into the following problems:\n"
-                        ++ "\nExpecting a String but instead got: {}"
-                        ++ "\nExpecting an Int but instead got: {}"
+                    ("Json.Decode.oneOf failed in the following 2 ways:\n"
+                        ++ "\n"
+                        ++ "\n"
+                        ++ "\n"
+                        ++ "(1) Problem with the given value:\n"
+                        ++ "    \n"
+                        ++ "    {}\n"
+                        ++ "    \n"
+                        ++ "    Expecting a STRING\n"
+                        ++ "\n"
+                        ++ "\n"
+                        ++ "\n"
+                        ++ "(2) Problem with the given value:\n"
+                        ++ "    \n"
+                        ++ "    {}\n"
+                        ++ "    \n"
+                        ++ "    Expecting an INT"
                         |> Err
                     )
-    , test "valid `User` source" <|
+    , test "valid `user` source" <|
         \_ ->
             """
             "Bob"
             """
                 |> Selector.decodeString selector
                 |> Expect.equal (Ok (User "user-id" "Bob"))
-    , test "valid `Counter` source" <|
+    , test "valid `counter` source" <|
         \_ ->
             """
             2
@@ -1080,9 +1464,13 @@ oneOfSingleFieldTests =
             {}
             """
                 |> Selector.decodeString selector
+                |> Result.mapError Selector.errorToString
                 |> Expect.equal
-                    ("I ran into the following problems:\n"
-                        ++ "\nExpecting an object with a field named `username` but instead got: {}"
+                    ("Problem with the given value:\n"
+                        ++ "\n"
+                        ++ "{}\n"
+                        ++ "\n"
+                        ++ "Expecting an OBJECT with a field named `username`"
                         |> Err
                     )
     , test "valid source" <|
@@ -1107,11 +1495,11 @@ oneOfMultipleFieldTests =
         selector =
             Selector.oneOf
                 [ Selector.succeed User
-                    !> Selector.field "id" [] Selector.string
-                    !> Selector.field "username" [] Selector.string
+                    |> Selector.select "id" [] Selector.string
+                    |> Selector.select "username" [] Selector.string
                 , Selector.succeed Counter
-                    !> Selector.field "id" [] Selector.string
-                    !> Selector.field "count" [] Selector.int
+                    |> Selector.select "id" [] Selector.string
+                    |> Selector.select "count" [] Selector.int
                 ]
     in
     [ test "invalid source" <|
@@ -1120,13 +1508,28 @@ oneOfMultipleFieldTests =
             {}
             """
                 |> Selector.decodeString selector
+                |> Result.mapError Selector.errorToString
                 |> Expect.equal
-                    ("I ran into the following problems:\n"
-                        ++ "\nExpecting an object with a field named `username` but instead got: {}"
-                        ++ "\nExpecting an object with a field named `count` but instead got: {}"
+                    ("Json.Decode.oneOf failed in the following 2 ways:\n"
+                        ++ "\n"
+                        ++ "\n"
+                        ++ "\n"
+                        ++ "(1) Problem with the given value:\n"
+                        ++ "    \n"
+                        ++ "    {}\n"
+                        ++ "    \n"
+                        ++ "    Expecting an OBJECT with a field named `username`\n"
+                        ++ "\n"
+                        ++ "\n"
+                        ++ "\n"
+                        ++ "(2) Problem with the given value:\n"
+                        ++ "    \n"
+                        ++ "    {}\n"
+                        ++ "    \n"
+                        ++ "    Expecting an OBJECT with a field named `count`"
                         |> Err
                     )
-    , test "valid `User` source" <|
+    , test "valid `user` source" <|
         \_ ->
             """
             {
@@ -1136,7 +1539,7 @@ oneOfMultipleFieldTests =
             """
                 |> Selector.decodeString selector
                 |> Expect.equal (Ok (User "user-id" "Bob"))
-    , test "valid `Counter` source" <|
+    , test "valid `counter` source" <|
         \_ ->
             """
             {
@@ -1157,18 +1560,18 @@ oneOfNestedTests : List Test
 oneOfNestedTests =
     let
         nestedSelector =
-            Selector.succeed (,)
-                !> Selector.field "search" [] Selector.string
-                !> Selector.field "results"
+            Selector.succeed tuple2
+                |> Selector.select "search" [] Selector.string
+                |> Selector.select "results"
                     []
                     (Selector.list
                         (Selector.oneOf
                             [ Selector.succeed User
-                                !> Selector.field "id" [] Selector.string
-                                !> Selector.field "username" [] Selector.string
+                                |> Selector.select "id" [] Selector.string
+                                |> Selector.select "username" [] Selector.string
                             , Selector.succeed Counter
-                                !> Selector.field "id" [] Selector.string
-                                !> Selector.field "count" [] Selector.int
+                                |> Selector.select "id" [] Selector.string
+                                |> Selector.select "count" [] Selector.int
                             ]
                         )
                     )
@@ -1179,7 +1582,15 @@ oneOfNestedTests =
             {}
             """
                 |> Selector.decodeString nestedSelector
-                |> Expect.equal (Err "Expecting an object with a field named `results` but instead got: {}")
+                |> Result.mapError Selector.errorToString
+                |> Expect.equal
+                    ("Problem with the given value:\n"
+                        ++ "\n"
+                        ++ "{}\n"
+                        ++ "\n"
+                        ++ "Expecting an OBJECT with a field named `results`"
+                        |> Err
+                    )
     , test "valid empty source" <|
         \_ ->
             """
@@ -1231,10 +1642,10 @@ oneOfNestedTests =
 oneOfTests : List Test
 oneOfTests =
     [ describe "GraphQL.Selector.oneOf with empty selector" oneOfEmptyTests
-    , describe "GraphQL.Selector.oneOf with singleNonField selector" oneOfSingleNonFieldTests
-    , describe "GraphQL.Selector.oneOf with multipleNonField selector" oneOfMultipleNonFieldTests
-    , describe "GraphQL.Selector.oneOf with singleField selector" oneOfSingleFieldTests
-    , describe "GraphQL.Selector.oneOf with multipleField selector" oneOfMultipleFieldTests
+    , describe "GraphQL.Selector.oneOf with single non field selector" oneOfSingleNonFieldTests
+    , describe "GraphQL.Selector.oneOf with multiple non field selector" oneOfMultipleNonFieldTests
+    , describe "GraphQL.Selector.oneOf with single field selector" oneOfSingleFieldTests
+    , describe "GraphQL.Selector.oneOf with multiple field selector" oneOfMultipleFieldTests
     , describe "GraphQL.Selector.oneOf with nested selector" oneOfNestedTests
     ]
 
@@ -1243,60 +1654,76 @@ mapTests : List Test
 mapTests =
     let
         fieldSelector =
-            Selector.succeed (,)
-                !> Selector.field "foo" [] (Selector.map String.length Selector.string)
-                !> Selector.field "bar" [] (Selector.map ((+) 1) Selector.int)
+            Selector.succeed tuple2
+                |> Selector.select "foo" [] (Selector.map String.length Selector.string)
+                |> Selector.select "bar" [] (Selector.map ((+) 1) Selector.int)
     in
     [ test "Invalid source with direct selector" <|
         \_ ->
             """
-                0
-                """
+            0
+            """
                 |> Selector.decodeString (Selector.map String.length Selector.string)
-                |> Expect.equal (Err "Expecting a String but instead got: 0")
-    , test "Valid source with direct selector" <|
+                |> Result.mapError Selector.errorToString
+                |> Expect.equal
+                    ("Problem with the given value:\n"
+                        ++ "\n"
+                        ++ "0\n"
+                        ++ "\n"
+                        ++ "Expecting a STRING"
+                        |> Err
+                    )
+    , test "valid source with direct selector" <|
         \_ ->
             """
-                "string value"
-                """
+            "string value"
+            """
                 |> Selector.decodeString (Selector.map String.length Selector.string)
                 |> Expect.equal (Ok 12)
-    , test "Invalid source with field selector" <|
+    , test "invalid source with field selector" <|
         \_ ->
             """
-                {
-                    "foo": false,
-                    "bar": 1
-                }
-                """
+            {
+                "foo": false,
+                "bar": 1
+            }
+            """
                 |> Selector.decodeString fieldSelector
-                |> Expect.equal (Err "Expecting a String at _.foo but instead got: false")
-    , test "Valid source with field selector" <|
+                |> Result.mapError Selector.errorToString
+                |> Expect.equal
+                    ("Problem with the value at json.foo:\n"
+                        ++ "\n"
+                        ++ "    false\n"
+                        ++ "\n"
+                        ++ "Expecting a STRING"
+                        |> Err
+                    )
+    , test "valid source with field selector" <|
         \_ ->
             """
-                {
-                    "foo": "string value",
-                    "bar": 4
-                }
-                """
+            {
+                "foo": "string value",
+                "bar": 4
+            }
+            """
                 |> Selector.decodeString fieldSelector
                 |> Expect.equal (Ok ( 12, 5 ))
-    , test "Build graph" <|
+    , test "build graph" <|
         \_ ->
             Selector.render (Selector.map String.length Selector.string)
                 |> Expect.equal ""
-    , test "Build field graph" <|
+    , test "build field graph" <|
         \_ ->
-            Selector.succeed (,)
-                !> Selector.field "foo" [] (Selector.map String.length Selector.string)
-                !> Selector.field "bar" [] (Selector.map String.length Selector.string)
+            Selector.succeed tuple2
+                |> Selector.select "foo" [] (Selector.map String.length Selector.string)
+                |> Selector.select "bar" [] (Selector.map String.length Selector.string)
                 |> Selector.render
                 |> Expect.equal "foo bar"
-    , test "Build field nested graph" <|
+    , test "build field nested graph" <|
         \_ ->
-            Selector.succeed (,)
-                !> Selector.field "foo" [] (Selector.map String.length Selector.string)
-                !> Selector.field "bar" [] (Selector.field "baz" [] (Selector.map String.length Selector.string))
+            Selector.succeed tuple2
+                |> Selector.select "foo" [] (Selector.map String.length Selector.string)
+                |> Selector.select "bar" [] (Selector.field "baz" [] (Selector.map String.length Selector.string))
                 |> Selector.render
                 |> Expect.equal "foo bar{baz}"
     ]
@@ -1310,100 +1737,132 @@ andThenTests =
             Selector.andThen
                 (\x ->
                     if x < 0 then
-                        Selector.fail ("Expecting a positive number but instead got: " ++ toString x)
+                        Selector.fail ("Expecting a positive number but instead got: " ++ Debug.toString x)
                     else
                         Selector.succeed x
                 )
 
         fieldSelector =
-            Selector.succeed (,)
-                !> Selector.field "bar"
+            Selector.succeed tuple2
+                |> Selector.select "bar"
                     []
                     (Selector.andThen
                         (\bar ->
                             case bar of
                                 0 ->
-                                    Selector.succeed (,)
-                                        !> Selector.field "first" [] Selector.bool
-                                        !> Selector.field "second" [] Selector.string
+                                    Selector.succeed tuple2
+                                        |> Selector.select "first" [] Selector.bool
+                                        |> Selector.select "second" [] Selector.string
 
                                 1 ->
                                     Selector.succeed ( False, "empty" )
 
                                 _ ->
-                                    Selector.fail ("Invalid bar: " ++ toString bar)
+                                    Selector.fail ("Invalid bar: " ++ String.fromInt bar)
                         )
                         Selector.int
                     )
-                !> Selector.field "foo" [] (onlyPositive Selector.float)
+                |> Selector.select "foo" [] (onlyPositive Selector.float)
     in
     [ test "Invalid source with direct selector" <|
         \_ ->
             """
-                -1
-                """
+            -1
+            """
                 |> Selector.decodeString (onlyPositive Selector.int)
-                |> Expect.equal (Err "I ran into a `fail` decoder: Expecting a positive number but instead got: -1")
-    , test "Valid source with direct selector" <|
+                |> Result.mapError Selector.errorToString
+                |> Expect.equal
+                    ("Problem with the given value:\n"
+                        ++ "\n"
+                        ++ "-1\n"
+                        ++ "\n"
+                        ++ "Expecting a positive number but instead got: -1"
+                        |> Err
+                    )
+    , test "valid source with direct selector" <|
         \_ ->
             """
-                1
-                """
+            1
+            """
                 |> Selector.decodeString (onlyPositive Selector.int)
                 |> Expect.equal (Ok 1)
-    , test "Invalid source with field selector" <|
+    , test "invalid source with field selector" <|
         \_ ->
             """
-                {
-                    "foo": 3.14,
-                    "bar": false
-                }
-                """
+            {
+                "foo": 3.14,
+                "bar": false
+            }
+            """
                 |> Selector.decodeString fieldSelector
-                |> Expect.equal (Err "Expecting an Int at _.bar but instead got: false")
-    , test "Valid source and invalid andThen with field selector" <|
+                |> Result.mapError Selector.errorToString
+                |> Expect.equal
+                    ("Problem with the value at json.bar:\n"
+                        ++ "\n"
+                        ++ "    false\n"
+                        ++ "\n"
+                        ++ "Expecting an INT"
+                        |> Err
+                    )
+    , test "valid source and invalid andthen with field selector" <|
         \_ ->
             """
-                {
-                    "foo": 3.14,
-                    "bar": 2
-                }
-                """
+            {
+                "foo": 3.14,
+                "bar": 2
+            }
+            """
                 |> Selector.decodeString fieldSelector
-                |> Expect.equal (Err "I ran into a `fail` decoder at _.bar: Invalid bar: 2")
-    , test "Valid source and valid hardcoded andThen with field selector" <|
+                |> Result.mapError Selector.errorToString
+                |> Expect.equal
+                    ("Problem with the value at json.bar:\n"
+                        ++ "\n"
+                        ++ "    2\n"
+                        ++ "\n"
+                        ++ "Invalid bar: 2"
+                        |> Err
+                    )
+    , test "valid source and valid hardcoded andthen with field selector" <|
         \_ ->
             """
-                {
-                    "foo": 3.14,
-                    "bar": 1
-                }
-                """
+            {
+                "foo": 3.14,
+                "bar": 1
+            }
+            """
                 |> Selector.decodeString fieldSelector
                 |> Expect.equal (Ok ( ( False, "empty" ), 3.14 ))
-    , test "Invalid source and valid andThen with field selector" <|
+    , test "invalid source and valid andthen with field selector" <|
         \_ ->
             """
-                {
-                    "foo": 3.14,
-                    "bar": 0
-                }
-                """
+            {
+                "foo": 3.14,
+                "bar": 0
+            }
+            """
                 |> Selector.decodeString fieldSelector
-                |> Expect.equal (Err "Expecting an object with a field named `second` at _.bar but instead got: 0")
-    , test "Build graph" <|
+                |> Result.mapError Selector.errorToString
+                |> Expect.equal
+                    ("Problem with the value at json.bar:\n"
+                        ++ "\n"
+                        ++ "    0\n"
+                        ++ "\n"
+                        ++ "Expecting an OBJECT with a field named `second`"
+                        |> Err
+                    )
+    , test "build graph" <|
         \_ ->
             Selector.render (onlyPositive Selector.int)
                 |> Expect.equal ""
-    , test "Build field graph" <|
+    , test "build field graph" <|
         \_ ->
             Selector.render fieldSelector
                 |> Expect.equal "bar foo"
-    , test "Build field nested graph" <|
+    , test "build field nested graph" <|
         \_ ->
-            Selector.succeed (,)
-                !> Selector.field "first" [] (Selector.map String.length Selector.string)
-                !> Selector.field "second" [] fieldSelector
+            Selector.succeed tuple2
+                |> Selector.select "first" [] (Selector.map String.length Selector.string)
+                |> Selector.select "second" [] fieldSelector
                 |> Selector.render
                 |> Expect.equal "first second{bar foo}"
     ]
@@ -1413,40 +1872,40 @@ succeedTests : List Test
 succeedTests =
     let
         fieldSelector =
-            Selector.succeed (,)
-                !> Selector.field "foo" [] (Selector.succeed 1)
-                !> Selector.field "bar" [] (Selector.succeed True)
+            Selector.succeed tuple2
+                |> Selector.select "foo" [] (Selector.succeed 1)
+                |> Selector.select "bar" [] (Selector.succeed True)
     in
     [ test "Direct selector" <|
         \_ ->
             """
-                null
-                """
+            null
+            """
                 |> Selector.decodeString (Selector.succeed "str")
                 |> Expect.equal (Ok "str")
-    , test "Field selector" <|
+    , test "field selector" <|
         \_ ->
             """
-                {
-                    "foo": null,
-                    "bar": null
-                }
-                """
+            {
+                "foo": null,
+                "bar": null
+            }
+            """
                 |> Selector.decodeString fieldSelector
                 |> Expect.equal (Ok ( 1, True ))
-    , test "Build graph" <|
+    , test "build graph" <|
         \_ ->
             Selector.render (Selector.succeed 3.14)
                 |> Expect.equal ""
-    , test "Build field graph" <|
+    , test "build field graph" <|
         \_ ->
             Selector.render fieldSelector
                 |> Expect.equal "foo bar"
-    , test "Build field nested graph" <|
+    , test "build field nested graph" <|
         \_ ->
-            Selector.succeed (,)
-                !> Selector.field "foo" [] (Selector.succeed Nothing)
-                !> Selector.field "bar" [] (Selector.field "baz" [] (Selector.succeed Nothing))
+            Selector.succeed tuple2
+                |> Selector.select "foo" [] (Selector.succeed Nothing)
+                |> Selector.select "bar" [] (Selector.field "baz" [] (Selector.succeed Nothing))
                 |> Selector.render
                 |> Expect.equal "foo bar{baz}"
     ]
@@ -1456,40 +1915,56 @@ failTests : List Test
 failTests =
     let
         fieldSelector =
-            Selector.succeed (,)
-                !> Selector.field "foo" [] (Selector.fail "message foo")
-                !> Selector.field "bar" [] (Selector.fail "message bar")
+            Selector.succeed tuple2
+                |> Selector.select "foo" [] (Selector.fail "message foo")
+                |> Selector.select "bar" [] (Selector.fail "message bar")
     in
     [ test "Direct selector" <|
         \_ ->
             """
-                null
-                """
+            null
+            """
                 |> Selector.decodeString (Selector.fail "message")
-                |> Expect.equal (Err "I ran into a `fail` decoder: message")
-    , test "Field selector" <|
+                |> Result.mapError Selector.errorToString
+                |> Expect.equal
+                    ("Problem with the given value:\n"
+                        ++ "\n"
+                        ++ "null\n"
+                        ++ "\n"
+                        ++ "message"
+                        |> Err
+                    )
+    , test "field selector" <|
         \_ ->
             """
-                {
-                    "foo": null,
-                    "bar": null
-                }
-                """
+            {
+                "foo": null,
+                "bar": null
+            }
+            """
                 |> Selector.decodeString fieldSelector
-                |> Expect.equal (Err "I ran into a `fail` decoder at _.bar: message bar")
-    , test "Build graph" <|
+                |> Result.mapError Selector.errorToString
+                |> Expect.equal
+                    ("Problem with the value at json.bar:\n"
+                        ++ "\n"
+                        ++ "    null\n"
+                        ++ "\n"
+                        ++ "message bar"
+                        |> Err
+                    )
+    , test "build graph" <|
         \_ ->
             Selector.render (Selector.fail "message")
                 |> Expect.equal ""
-    , test "Build field graph" <|
+    , test "build field graph" <|
         \_ ->
             Selector.render fieldSelector
                 |> Expect.equal "foo bar"
-    , test "Build field nested graph" <|
+    , test "build field nested graph" <|
         \_ ->
-            Selector.succeed (,)
-                !> Selector.field "foo" [] (Selector.fail "message foo")
-                !> Selector.field "bar" [] (Selector.field "baz" [] (Selector.fail "message bar.baz"))
+            Selector.succeed tuple2
+                |> Selector.select "foo" [] (Selector.fail "message foo")
+                |> Selector.select "bar" [] (Selector.field "baz" [] (Selector.fail "message bar.baz"))
                 |> Selector.render
                 |> Expect.equal "foo bar{baz}"
     ]
@@ -1499,78 +1974,110 @@ nullTests : List Test
 nullTests =
     let
         fieldSelector =
-            Selector.succeed (,)
-                !> Selector.field "foo" [] (Selector.null False)
-                !> Selector.field "bar" [] (Selector.null 1)
+            Selector.succeed tuple2
+                |> Selector.select "foo" [] (Selector.null False)
+                |> Selector.select "bar" [] (Selector.null 1)
     in
     [ test "Same type source with direct selector" <|
         \_ ->
             """
-                42
-                """
+            42
+            """
                 |> Selector.decodeString (Selector.null 42)
-                |> Expect.equal (Err "Expecting null but instead got: 42")
-    , test "Different type source with direct selector" <|
+                |> Result.mapError Selector.errorToString
+                |> Expect.equal
+                    ("Problem with the given value:\n"
+                        ++ "\n"
+                        ++ "42\n"
+                        ++ "\n"
+                        ++ "Expecting null"
+                        |> Err
+                    )
+    , test "different type source with direct selector" <|
         \_ ->
             """
-                false
-                """
+            false
+            """
                 |> Selector.decodeString (Selector.null 42)
-                |> Expect.equal (Err "Expecting null but instead got: false")
-    , test "Null source with direct selector" <|
+                |> Result.mapError Selector.errorToString
+                |> Expect.equal
+                    ("Problem with the given value:\n"
+                        ++ "\n"
+                        ++ "false\n"
+                        ++ "\n"
+                        ++ "Expecting null"
+                        |> Err
+                    )
+    , test "null source with direct selector" <|
         \_ ->
             """
-                null
-                """
+            null
+            """
                 |> Selector.decodeString (Selector.null 42)
                 |> Expect.equal (Ok 42)
-    , test "Same type source with field selector" <|
+    , test "same type source with field selector" <|
         \_ ->
             """
-                {
-                    "foo": false,
-                    "bar": null
-                }
-                """
+            {
+                "foo": false,
+                "bar": null
+            }
+            """
                 |> Selector.decodeString fieldSelector
-                |> Expect.equal (Err "Expecting null at _.foo but instead got: false")
-    , test "Different type source with field selector" <|
+                |> Result.mapError Selector.errorToString
+                |> Expect.equal
+                    ("Problem with the value at json.foo:\n"
+                        ++ "\n"
+                        ++ "    false\n"
+                        ++ "\n"
+                        ++ "Expecting null"
+                        |> Err
+                    )
+    , test "different type source with field selector" <|
         \_ ->
             """
-                {
-                    "foo": 0,
-                    "bar": null
-                }
-                """
+            {
+                "foo": 0,
+                "bar": null
+            }
+            """
                 |> Selector.decodeString fieldSelector
-                |> Expect.equal (Err "Expecting null at _.foo but instead got: 0")
-    , test "Valid source with field selector" <|
+                |> Result.mapError Selector.errorToString
+                |> Expect.equal
+                    ("Problem with the value at json.foo:\n"
+                        ++ "\n"
+                        ++ "    0\n"
+                        ++ "\n"
+                        ++ "Expecting null"
+                        |> Err
+                    )
+    , test "valid source with field selector" <|
         \_ ->
             """
-                {
-                    "foo": null,
-                    "bar": null
-                }
-                """
+            {
+                "foo": null,
+                "bar": null
+            }
+            """
                 |> Selector.decodeString fieldSelector
                 |> Expect.equal
                     (Ok ( False, 1 ))
-    , test "Build graph" <|
+    , test "build graph" <|
         \_ ->
             Selector.render (Selector.keyValuePairs Selector.string)
                 |> Expect.equal ""
-    , test "Build field graph" <|
+    , test "build field graph" <|
         \_ ->
-            Selector.succeed (,)
-                !> Selector.field "foo" [] (Selector.keyValuePairs Selector.string)
-                !> Selector.field "bar" [] (Selector.keyValuePairs Selector.string)
+            Selector.succeed tuple2
+                |> Selector.select "foo" [] (Selector.keyValuePairs Selector.string)
+                |> Selector.select "bar" [] (Selector.keyValuePairs Selector.string)
                 |> Selector.render
                 |> Expect.equal "foo bar"
-    , test "Build field nested graph" <|
+    , test "build field nested graph" <|
         \_ ->
-            Selector.succeed (,)
-                !> Selector.field "foo" [] (Selector.keyValuePairs Selector.string)
-                !> Selector.field "bar" [] (Selector.field "baz" [] (Selector.keyValuePairs Selector.string))
+            Selector.succeed tuple2
+                |> Selector.select "foo" [] (Selector.keyValuePairs Selector.string)
+                |> Selector.select "bar" [] (Selector.field "baz" [] (Selector.keyValuePairs Selector.string))
                 |> Selector.render
                 |> Expect.equal "foo bar{baz}"
     ]
@@ -1593,7 +2100,8 @@ onSingleEmptyTests =
             {}
             """
                 |> Selector.decodeString selector
-                |> Expect.equal (Err "I ran into the following problems:\n\n")
+                |> Result.mapError Selector.errorToString
+                |> Expect.equal (Err "Ran into a Json.Decode.oneOf with no possibilities!")
     , test "graph" <|
         \_ ->
             Selector.render selector
@@ -1615,9 +2123,13 @@ onSingleNonFieldTests =
             {}
             """
                 |> Selector.decodeString selector
+                |> Result.mapError Selector.errorToString
                 |> Expect.equal
-                    ("I ran into the following problems:\n"
-                        ++ "\nExpecting a String but instead got: {}"
+                    ("Problem with the given value:\n"
+                        ++ "\n"
+                        ++ "{}\n"
+                        ++ "\n"
+                        ++ "Expecting a STRING"
                         |> Err
                     )
     , test "graph" <|
@@ -1642,10 +2154,25 @@ onMultipleNonFieldTests =
             {}
             """
                 |> Selector.decodeString selector
+                |> Result.mapError Selector.errorToString
                 |> Expect.equal
-                    ("I ran into the following problems:\n"
-                        ++ "\nExpecting a String but instead got: {}"
-                        ++ "\nExpecting an Int but instead got: {}"
+                    ("Json.Decode.oneOf failed in the following 2 ways:\n"
+                        ++ "\n"
+                        ++ "\n"
+                        ++ "\n"
+                        ++ "(1) Problem with the given value:\n"
+                        ++ "    \n"
+                        ++ "    {}\n"
+                        ++ "    \n"
+                        ++ "    Expecting a STRING\n"
+                        ++ "\n"
+                        ++ "\n"
+                        ++ "\n"
+                        ++ "(2) Problem with the given value:\n"
+                        ++ "    \n"
+                        ++ "    {}\n"
+                        ++ "    \n"
+                        ++ "    Expecting an INT"
                         |> Err
                     )
     , test "graph" <|
@@ -1671,9 +2198,13 @@ onSingleFieldTests =
             {}
             """
                 |> Selector.decodeString selector
+                |> Result.mapError Selector.errorToString
                 |> Expect.equal
-                    ("I ran into the following problems:\n"
-                        ++ "\nExpecting an object with a field named `username` but instead got: {}"
+                    ("Problem with the given value:\n"
+                        ++ "\n"
+                        ++ "{}\n"
+                        ++ "\n"
+                        ++ "Expecting an OBJECT with a field named `username`"
                         |> Err
                     )
     , test "valid source" <|
@@ -1684,6 +2215,7 @@ onSingleFieldTests =
             }
             """
                 |> Selector.decodeString selector
+                |> Result.mapError Selector.errorToString
                 |> Expect.equal (Ok "Bob")
     , test "graph" <|
         \_ ->
@@ -1699,13 +2231,13 @@ onMultipeFieldTests =
             Selector.on
                 [ ( "User"
                   , Selector.succeed User
-                        !> Selector.field "id" [] Selector.string
-                        !> Selector.field "username" [] Selector.string
+                        |> Selector.select "id" [] Selector.string
+                        |> Selector.select "username" [] Selector.string
                   )
                 , ( "Counter"
                   , Selector.succeed Counter
-                        !> Selector.field "id" [] Selector.string
-                        !> Selector.field "count" [] Selector.int
+                        |> Selector.select "id" [] Selector.string
+                        |> Selector.select "count" [] Selector.int
                   )
                 ]
     in
@@ -1715,13 +2247,28 @@ onMultipeFieldTests =
             {}
             """
                 |> Selector.decodeString selector
+                |> Result.mapError Selector.errorToString
                 |> Expect.equal
-                    ("I ran into the following problems:\n"
-                        ++ "\nExpecting an object with a field named `username` but instead got: {}"
-                        ++ "\nExpecting an object with a field named `count` but instead got: {}"
+                    ("Json.Decode.oneOf failed in the following 2 ways:\n"
+                        ++ "\n"
+                        ++ "\n"
+                        ++ "\n"
+                        ++ "(1) Problem with the given value:\n"
+                        ++ "    \n"
+                        ++ "    {}\n"
+                        ++ "    \n"
+                        ++ "    Expecting an OBJECT with a field named `username`\n"
+                        ++ "\n"
+                        ++ "\n"
+                        ++ "\n"
+                        ++ "(2) Problem with the given value:\n"
+                        ++ "    \n"
+                        ++ "    {}\n"
+                        ++ "    \n"
+                        ++ "    Expecting an OBJECT with a field named `count`"
                         |> Err
                     )
-    , test "valid User source" <|
+    , test "valid user source" <|
         \_ ->
             """
             {
@@ -1731,7 +2278,7 @@ onMultipeFieldTests =
             """
                 |> Selector.decodeString selector
                 |> Expect.equal (Ok (User "user-id" "Bob"))
-    , test "valid Counter" <|
+    , test "valid counter" <|
         \_ ->
             """
             {
@@ -1752,21 +2299,21 @@ onNestedTests : List Test
 onNestedTests =
     let
         selector =
-            Selector.succeed (,)
-                !> Selector.field "search" [] Selector.string
-                !> Selector.field "results"
+            Selector.succeed tuple2
+                |> Selector.select "search" [] Selector.string
+                |> Selector.select "results"
                     []
                     (Selector.list
                         (Selector.on
                             [ ( "User"
                               , Selector.succeed User
-                                    !> Selector.field "id" [] Selector.string
-                                    !> Selector.field "username" [] Selector.string
+                                    |> Selector.select "id" [] Selector.string
+                                    |> Selector.select "username" [] Selector.string
                               )
                             , ( "Counter"
                               , Selector.succeed Counter
-                                    !> Selector.field "id" [] Selector.string
-                                    !> Selector.field "count" [] Selector.int
+                                    |> Selector.select "id" [] Selector.string
+                                    |> Selector.select "count" [] Selector.int
                               )
                             ]
                         )
@@ -1778,7 +2325,13 @@ onNestedTests =
             {}
             """
                 |> Selector.decodeString selector
-                |> Expect.equal (Err "Expecting an object with a field named `results` but instead got: {}")
+                |> Result.mapError Selector.errorToString
+                |> Expect.equal
+                    ("Problem with the given value:\n"
+                        ++ "\n{}\n"
+                        ++ "\nExpecting an OBJECT with a field named `results`"
+                        |> Err
+                    )
     , test "valid empty source" <|
         \_ ->
             """

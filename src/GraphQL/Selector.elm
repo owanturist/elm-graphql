@@ -1,30 +1,40 @@
 module GraphQL.Selector
     exposing
-        ( (!>)
-        , (?>)
+        ( Error(..)
         , Selector
         , Value
-        , aliased
         , andThen
         , array
+        , at
         , bool
         , decodeString
         , decodeValue
         , dict
+        , errorToString
         , fail
         , field
+        , fieldWithAlias
         , float
         , index
         , int
         , keyValuePairs
         , list
         , map
+        , map2
+        , map3
+        , map4
+        , map5
+        , map6
+        , map7
+        , map8
         , maybe
         , null
         , nullable
         , on
         , oneOf
         , render
+        , select
+        , selectWithAlias
         , string
         , succeed
         , toDecoder
@@ -36,8 +46,7 @@ module GraphQL.Selector
 
 # Primitives
 
-@docs Selector
-@docs string, bool, int, float
+@docs Selector, string, bool, int, float
 
 
 # Data Structures
@@ -47,7 +56,7 @@ module GraphQL.Selector
 
 # Object Primitives
 
-@docs (!>), (?>), field, aliased, index, on
+@docs field, fieldWithAlias, at, index, on
 
 
 # Inconsistent Structure
@@ -55,15 +64,24 @@ module GraphQL.Selector
 @docs maybe, oneOf
 
 
+# Mapping
+
+@docs map, map2, map3, map4, map5, map6, map7, map8
+
+
+# Chaining
+
+@docs select, selectWithAlias
+
+
 # Run Selectors
 
-@docs Value
-@docs render, toDecoder, decodeString, decodeValue
+@docs render, toDecoder, decodeString, decodeValue, Value, Error, errorToString
 
 
 # Fancy Decoding
 
-@docs map, andThen, succeed, fail, value, null
+@docs andThen, succeed, fail, value, null
 
 -}
 
@@ -77,6 +95,70 @@ import Json.Decode as Json exposing (Decoder)
 -}
 type alias Value =
     Json.Value
+
+
+{-| A structured error describing exactly how the selector failed.
+You can use this to create more elaborate visualizations of a selector problem.
+For example, you could show the entire JSON object
+and show the part causing the failure in red.
+-}
+type Error
+    = Field String Error
+    | Index Int Error
+    | OneOf (List Error)
+    | Failure String Value
+
+
+toDecodeError : Error -> Json.Error
+toDecodeError error =
+    case error of
+        Field fieldName subError ->
+            Json.Field fieldName (toDecodeError subError)
+
+        Index i subError ->
+            Json.Index i (toDecodeError subError)
+
+        OneOf subErrors ->
+            Json.OneOf (List.map toDecodeError subErrors)
+
+        Failure msg val ->
+            Json.Failure msg val
+
+
+fromDecodeError : Json.Error -> Error
+fromDecodeError error =
+    case error of
+        Json.Field fieldName subError ->
+            Field fieldName (fromDecodeError subError)
+
+        Json.Index i subError ->
+            Index i (fromDecodeError subError)
+
+        Json.OneOf subErrors ->
+            OneOf (List.map fromDecodeError subErrors)
+
+        Json.Failure msg val ->
+            Failure msg val
+
+
+{-| Convert a decoding error into a String that is nice for debugging.
+It produces multiple lines of output, so you may want to peek at it with something like this:
+
+    import Html
+    import Json.Decode as Decode
+
+    errorToHtml : Decode.Error -> Html.Html msg
+    errorToHtml error =
+        Html.pre [] [ Html.text (Decode.errorToString error) ]
+
+**Note:** It would be cool to do nicer coloring and fancier HTML, but we
+cannot have any HTML dependencies in `elm/core`. It is totally possible
+to crawl the `Error` structure and create this separately though!
+
+-}
+errorToString : Error -> String
+errorToString =
+    Json.errorToString << toDecodeError
 
 
 {-| A value that knows how to select (receive and decode) a GraphQL values.
@@ -93,24 +175,6 @@ primitive =
 container : (Decoder a -> Decoder b) -> Selector a -> Selector b
 container wrapper (Selector query decoder) =
     Selector query (wrapper decoder)
-
-
-infixl 0 !>
-
-
-{-| -}
-(!>) : Selector (a -> b) -> Selector a -> Selector b
-(!>) next selector =
-    map2 (|>) selector next
-
-
-infixl 0 ?>
-
-
-{-| -}
-(?>) : Selector (Maybe a -> b) -> Selector a -> Selector b
-(?>) next selector =
-    map2 (|>) (nullable selector) next
 
 
 filterJoinQueries : List (Maybe String) -> Maybe String
@@ -186,10 +250,10 @@ We can use this to select objects with many fields:
 
     person : Selector Person
     person =
-        map3 Person
-            (field "name" [] string)
-            (field age" [] int)
-            (field "height" [] float)
+        succeed Person
+            |> select "name" [] string
+            |> select age" [] int
+            |> select "height" [] float
 
 
     -- json = """{ "name": "tom", "info": { "age": 42, "height": 1.8 } }"""
@@ -454,16 +518,16 @@ maybe =
     container Json.maybe
 
 
-select : Maybe String -> String -> List ( String, Argument ) -> Selector a -> Selector a
-select alias name arguments (Selector childQuery decoder) =
+makeSelector : Maybe String -> String -> List ( String, Argument ) -> Selector a -> Selector a
+makeSelector mAlias name arguments (Selector childQuery decoder) =
     let
-        fieldOrAlias =
-            case alias of
+        ( fieldOrAlias, fieldName ) =
+            case mAlias of
                 Nothing ->
-                    name
+                    ( name, name )
 
                 Just alias ->
-                    alias ++ ":" ++ name
+                    ( alias ++ ":" ++ name, alias )
 
         args =
             Internal.renderPairsOfArguments arguments
@@ -477,19 +541,48 @@ select alias name arguments (Selector childQuery decoder) =
     in
     Selector
         (Just (fieldOrAlias ++ args ++ child))
-        (Json.field (Maybe.withDefault name alias) decoder)
+        (Json.field fieldName decoder)
 
 
 {-| -}
 field : String -> List ( String, Argument ) -> Selector a -> Selector a
 field =
-    select Nothing
+    makeSelector Nothing
 
 
 {-| -}
-aliased : String -> String -> List ( String, Argument ) -> Selector a -> Selector a
-aliased =
-    select << Just
+fieldWithAlias : String -> String -> List ( String, Argument ) -> Selector a -> Selector a
+fieldWithAlias =
+    makeSelector << Just
+
+
+{-| Decode a nested JSON object, requiring certain fields.
+
+    json = """{ "person": { "name": "tom", "age": 42 } }"""
+
+    decodeString (at ["person", "name"] string) json  == Ok "tom"
+    decodeString (at ["person", "age" ] int   ) json  == Ok "42
+
+This is really just a shorthand for saying things like:
+
+    field "person" [] (field "name" [] string) == at ["person","name"] string
+
+-}
+at : List String -> Selector a -> Selector a
+at fields selector =
+    List.foldr (\name -> makeSelector Nothing name []) selector fields
+
+
+{-| -}
+select : String -> List ( String, Argument ) -> Selector a -> Selector (a -> b) -> Selector b
+select name arguments selector next =
+    map2 (|>) (makeSelector Nothing name arguments selector) next
+
+
+{-| -}
+selectWithAlias : String -> String -> List ( String, Argument ) -> Selector a -> Selector (a -> b) -> Selector b
+selectWithAlias alias name arguments selector next =
+    map2 (|>) (makeSelector (Just alias) name arguments selector) next
 
 
 {-| -}
@@ -561,15 +654,17 @@ This will fail if the string is not well-formed JSON or if the Decoder fails for
     decodeString int "1 + 2" == Err ...
 
 -}
-decodeString : Selector a -> String -> Result String a
+decodeString : Selector a -> String -> Result Error a
 decodeString selector str =
     Json.decodeString (toDecoder selector) str
+        |> Result.mapError fromDecodeError
 
 
 {-| Run a Decoder on some JSON Value.
 You can send these JSON values through ports,
 so that is probably the main time you would use this function.
 -}
-decodeValue : Selector a -> Value -> Result String a
+decodeValue : Selector a -> Value -> Result Error a
 decodeValue selector val =
     Json.decodeValue (toDecoder selector) val
+        |> Result.mapError fromDecodeError
