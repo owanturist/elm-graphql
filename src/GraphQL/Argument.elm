@@ -220,9 +220,9 @@ Equals to:
     """
 
 -}
-list : List Argument -> Argument
-list =
-    Internal.List
+list : (a -> Argument) -> List a -> Argument
+list argument =
+    Internal.List << List.map argument
 
 
 {-| Pass array of arguments into a graph.
@@ -260,9 +260,9 @@ Equals to:
     """
 
 -}
-array : Array Argument -> Argument
-array =
-    Internal.Array
+array : (a -> Argument) -> Array a -> Argument
+array argument =
+    Internal.Array << Array.map argument
 
 
 {-| Convert `Argument` into `Value`.

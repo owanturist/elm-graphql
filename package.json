@@ -8,6 +8,6 @@
   "author": "Anton Ovechkin <owanturist@gmail.com>",
   "license": "MIT",
   "devDependencies": {
-    "elm-test": "^0.18.12"
+    "elm-test": "github:rtfeldman/node-test-runner#0.19"
   }
 }

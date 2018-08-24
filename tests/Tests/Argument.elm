@@ -21,12 +21,12 @@ tests =
             \value ->
                 Argument.int value
                     |> Internal.argumentToString
-                    |> Expect.equal (toString value)
+                    |> Expect.equal (String.fromInt value)
         , fuzz Fuzz.float "GraphQL.Argument.float" <|
             \value ->
                 Argument.float value
                     |> Internal.argumentToString
-                    |> Expect.equal (toString value)
+                    |> Expect.equal (String.fromFloat value)
         , test "GraphQL.Argument.bool False" <|
             \_ ->
                 Argument.bool False
@@ -55,11 +55,11 @@ tests =
                     |> Expect.equal """{asString:"str",asInt:1,asFloat:3.14,asBool:true,asNull:null}"""
         , test "GraphQL.Argument.list" <|
             \_ ->
-                Argument.list
+                Argument.list identity
                     [ Argument.string "str"
                     , Argument.int 1
                     , Argument.float 3.14
-                    , Argument.list
+                    , Argument.list identity
                         [ Argument.bool True
                         , Argument.null
                         ]
@@ -68,12 +68,12 @@ tests =
                     |> Expect.equal """["str",1,3.14,[true,null]]"""
         , test "GraphQL.Argument.array" <|
             \_ ->
-                Argument.array
+                Argument.array identity
                     (Array.fromList
                         [ Argument.string "str"
                         , Argument.int 1
                         , Argument.float 3.14
-                        , Argument.array
+                        , Argument.array identity
                             (Array.fromList
                                 [ Argument.bool True
                                 , Argument.null
@@ -124,21 +124,20 @@ toValueTests =
             Argument.null
                 |> Argument.toValue
                 |> Expect.equal Encode.null
-    , fuzz (Fuzz.tuple4 ( Fuzz.string, Fuzz.int, Fuzz.float, Fuzz.bool )) "GraphQL.Argument.list" <|
-        \( string, int, float, bool ) ->
-            Argument.list
+    , fuzz (Fuzz.tuple3 ( Fuzz.string, Fuzz.float, Fuzz.bool )) "GraphQL.Argument.list" <|
+        \( string, float, bool ) ->
+            Argument.list identity
                 [ Argument.string string
-                , Argument.int int
                 , Argument.float float
                 , Argument.bool bool
                 , Argument.null
-                , Argument.list
+                , Argument.list identity
                     [ Argument.string "list"
                     , Argument.int 0
                     , Argument.float 3.14
                     , Argument.bool True
                     ]
-                , Argument.array
+                , Argument.array identity
                     (Array.fromList
                         [ Argument.string "list"
                         , Argument.int 0
@@ -152,19 +151,18 @@ toValueTests =
                 ]
                 |> Argument.toValue
                 |> Expect.equal
-                    (Encode.list
+                    (Encode.list identity
                         [ Encode.string string
-                        , Encode.int int
                         , Encode.float float
                         , Encode.bool bool
                         , Encode.null
-                        , Encode.list
+                        , Encode.list identity
                             [ Encode.string "list"
                             , Encode.int 0
                             , Encode.float 3.14
                             , Encode.bool True
                             ]
-                        , Encode.array
+                        , Encode.array identity
                             (Array.fromList
                                 [ Encode.string "list"
                                 , Encode.int 0
@@ -177,20 +175,19 @@ toValueTests =
                             ]
                         ]
                     )
-    , fuzz (Fuzz.tuple4 ( Fuzz.string, Fuzz.int, Fuzz.float, Fuzz.bool )) "GraphQL.Argument.array" <|
-        \( string, int, float, bool ) ->
+    , fuzz (Fuzz.tuple3 ( Fuzz.string, Fuzz.int, Fuzz.bool )) "GraphQL.Argument.array" <|
+        \( string, int, bool ) ->
             [ Argument.string string
             , Argument.int int
-            , Argument.float float
             , Argument.bool bool
             , Argument.null
-            , Argument.list
+            , Argument.list identity
                 [ Argument.string "list"
                 , Argument.int 0
                 , Argument.float 3.14
                 , Argument.bool True
                 ]
-            , Argument.array
+            , Argument.array identity
                 (Array.fromList
                     [ Argument.string "list"
                     , Argument.int 0
@@ -203,21 +200,20 @@ toValueTests =
                 ]
             ]
                 |> Array.fromList
-                |> Argument.array
+                |> Argument.array identity
                 |> Argument.toValue
                 |> Expect.equal
                     ([ Encode.string string
                      , Encode.int int
-                     , Encode.float float
                      , Encode.bool bool
                      , Encode.null
-                     , Encode.list
+                     , Encode.list identity
                         [ Encode.string "list"
                         , Encode.int 0
                         , Encode.float 3.14
                         , Encode.bool True
                         ]
-                     , Encode.array
+                     , Encode.array identity
                         (Array.fromList
                             [ Encode.string "list"
                             , Encode.int 0
@@ -230,17 +226,16 @@ toValueTests =
                         ]
                      ]
                         |> Array.fromList
-                        |> Encode.array
+                        |> Encode.array identity
                     )
-    , fuzz (Fuzz.tuple4 ( Fuzz.string, Fuzz.int, Fuzz.float, Fuzz.bool )) "GraphQL.Argument.object" <|
-        \( string, int, float, bool ) ->
+    , fuzz (Fuzz.tuple3 ( Fuzz.string, Fuzz.float, Fuzz.bool )) "GraphQL.Argument.object" <|
+        \( string, float, bool ) ->
             [ ( "string", Argument.string string )
-            , ( "int", Argument.int int )
             , ( "float", Argument.float float )
             , ( "bool", Argument.bool bool )
             , ( "null", Argument.null )
             , ( "list"
-              , Argument.list
+              , Argument.list identity
                     [ Argument.string "list"
                     , Argument.int 0
                     , Argument.float 3.14
@@ -248,7 +243,7 @@ toValueTests =
                     ]
               )
             , ( "array"
-              , Argument.array
+              , Argument.array identity
                     (Array.fromList
                         [ Argument.string "list"
                         , Argument.int 0
@@ -267,12 +262,11 @@ toValueTests =
                 |> Argument.toValue
                 |> Expect.equal
                     ([ ( "string", Encode.string string )
-                     , ( "int", Encode.int int )
                      , ( "float", Encode.float float )
                      , ( "bool", Encode.bool bool )
                      , ( "null", Encode.null )
                      , ( "list"
-                       , Encode.list
+                       , Encode.list identity
                             [ Encode.string "list"
                             , Encode.int 0
                             , Encode.float 3.14
@@ -280,7 +274,7 @@ toValueTests =
                             ]
                        )
                      , ( "array"
-                       , Encode.array
+                       , Encode.array identity
                             (Array.fromList
                                 [ Encode.string "list"
                                 , Encode.int 0

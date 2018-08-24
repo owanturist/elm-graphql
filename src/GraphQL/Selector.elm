@@ -1,6 +1,6 @@
 module GraphQL.Selector
     exposing
-        ( Error
+        ( Error(..)
         , Selector
         , Value
         , andThen
