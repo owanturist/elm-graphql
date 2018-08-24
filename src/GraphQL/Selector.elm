@@ -5,6 +5,7 @@ module GraphQL.Selector
         , Value
         , andThen
         , array
+        , at
         , bool
         , decodeString
         , decodeValue
@@ -55,7 +56,7 @@ module GraphQL.Selector
 
 # Object Primitives
 
-@docs field, fieldWithAlias, index, on
+@docs field, fieldWithAlias, at, index, on
 
 
 # Inconsistent Structure
@@ -553,6 +554,23 @@ field =
 fieldWithAlias : String -> String -> List ( String, Argument ) -> Selector a -> Selector a
 fieldWithAlias =
     makeSelector << Just
+
+
+{-| Decode a nested JSON object, requiring certain fields.
+
+    json = """{ "person": { "name": "tom", "age": 42 } }"""
+
+    decodeString (at ["person", "name"] string) json  == Ok "tom"
+    decodeString (at ["person", "age" ] int   ) json  == Ok "42
+
+This is really just a shorthand for saying things like:
+
+    field "person" [] (field "name" [] string) == at ["person","name"] string
+
+-}
+at : List String -> Selector a -> Selector a
+at fields selector =
+    List.foldr (\name -> makeSelector Nothing name []) selector fields
 
 
 {-| -}
