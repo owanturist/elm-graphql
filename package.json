@@ -1,6 +1,6 @@
 {
   "name": "elm-graphql",
-  "version": "1.0.0",
+  "version": "4.0.0",
   "description": "Build GraphQL schemes and decoder together",
   "scripts": {
     "test": "elm-test"
