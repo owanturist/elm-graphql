@@ -1,6 +1,6 @@
 {
     "type": "package",
-    "name": "owanturist/graphql",
+    "name": "owanturist/elm-graphql",
     "summary": "Build GraphQL schemes and decoder together",
     "license": "MIT",
     "version": "1.0.0",
