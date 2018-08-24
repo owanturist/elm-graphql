@@ -22,6 +22,7 @@ tests =
         , describe "GraphQL.Selector.array" arrayTests
         , describe "GraphQL.Selector.dict" dictTests
         , describe "GraphQL.Selector.keyValuePairs" keyValuePairsTests
+        , describe "GraphQL.Selector.at" atTests
         , describe "GraphQL.Selector.index" indexTests
         , describe "GraphQL.Selector.maybe" maybeTests
         , describe "GraphQL.Selector.oneOf" oneOfTests
@@ -51,12 +52,12 @@ structureTests =
             Selector.string
                 |> Selector.render
                 |> Expect.equal ""
-    , test "Single graph" <|
+    , test "single graph" <|
         \_ ->
             Selector.field "bar" [] Selector.string
                 |> Selector.render
                 |> Expect.equal "bar"
-    , test "Multiple graph" <|
+    , test "multiple graph" <|
         \_ ->
             Selector.succeed tuple3
                 |> Selector.select "bar" [] Selector.string
@@ -64,7 +65,7 @@ structureTests =
                 |> Selector.select "baz" [] Selector.string
                 |> Selector.render
                 |> Expect.equal "bar foo baz"
-    , test "Nested graph" <|
+    , test "nested graph" <|
         \_ ->
             Selector.string
                 |> Selector.field "baz" []
@@ -72,7 +73,7 @@ structureTests =
                 |> Selector.field "bar" []
                 |> Selector.render
                 |> Expect.equal "bar{foo{baz}}"
-    , test "Nested multiple graph" <|
+    , test "nested multiple graph" <|
         \_ ->
             Selector.succeed tuple3
                 |> Selector.select "bar" [] Selector.string
@@ -92,7 +93,7 @@ structureTests =
                 |> Selector.select "baz" [] Selector.string
                 |> Selector.render
                 |> Expect.equal "bar foo{bar1 foo1{bar2 foo2 baz2} baz1} baz"
-    , test "Argumented graph" <|
+    , test "argumented graph" <|
         \_ ->
             Selector.field "bar"
                 [ ( "foo", Argument.string "baz" )
@@ -100,7 +101,7 @@ structureTests =
                 Selector.string
                 |> Selector.render
                 |> Expect.equal """bar(foo:"baz")"""
-    , test "Nested argumented graph" <|
+    , test "nested argumented graph" <|
         \_ ->
             Selector.field "bar"
                 [ ( "foo", Argument.string "baz" )
@@ -112,12 +113,12 @@ structureTests =
                 )
                 |> Selector.render
                 |> Expect.equal """bar(foo:"baz"){bar1(foo1:"baz1")}"""
-    , test "Aliased graph" <|
+    , test "aliased graph" <|
         \_ ->
             Selector.fieldWithAlias "foo" "bar" [] Selector.string
                 |> Selector.render
                 |> Expect.equal "foo:bar"
-    , test "Aliased argumented graph" <|
+    , test "aliased argumented graph" <|
         \_ ->
             Selector.fieldWithAlias "foo"
                 "bar"
@@ -126,7 +127,7 @@ structureTests =
                 Selector.string
                 |> Selector.render
                 |> Expect.equal "foo:bar(baz:0)"
-    , test "Full graph" <|
+    , test "full graph" <|
         \_ ->
             Selector.succeed tuple3
                 |> Selector.selectWithAlias
@@ -222,14 +223,14 @@ stringTests =
                         ++ "Expecting a STRING"
                         |> Err
                     )
-    , test "Valid source with direct selector" <|
+    , test "valid source with direct selector" <|
         \_ ->
             """
             "string value"
             """
                 |> Selector.decodeString Selector.string
                 |> Expect.equal (Ok "string value")
-    , test "Invalid source with field selector" <|
+    , test "invalid source with field selector" <|
         \_ ->
             """
             {
@@ -247,7 +248,7 @@ stringTests =
                         ++ "Expecting a STRING"
                         |> Err
                     )
-    , test "Valid source with field selector" <|
+    , test "valid source with field selector" <|
         \_ ->
             """
             {
@@ -257,11 +258,11 @@ stringTests =
             """
                 |> Selector.decodeString fieldSelector
                 |> Expect.equal (Ok ( "string value", "another value" ))
-    , test "Build graph" <|
+    , test "build graph" <|
         \_ ->
             Selector.render Selector.string
                 |> Expect.equal ""
-    , test "Build field graph" <|
+    , test "build field graph" <|
         \_ ->
             Selector.succeed tuple2
                 |> Selector.select "foo" [] Selector.string
@@ -294,14 +295,14 @@ boolTests =
                         ++ "Expecting a BOOL"
                         |> Err
                     )
-    , test "Valid source with direct selector" <|
+    , test "valid source with direct selector" <|
         \_ ->
             """
             false
             """
                 |> Selector.decodeString Selector.bool
                 |> Expect.equal (Ok False)
-    , test "Invalid source with field selector" <|
+    , test "invalid source with field selector" <|
         \_ ->
             """
             {
@@ -319,7 +320,7 @@ boolTests =
                         ++ "Expecting a BOOL"
                         |> Err
                     )
-    , test "Valid source with field selector" <|
+    , test "valid source with field selector" <|
         \_ ->
             """
             {
@@ -329,11 +330,11 @@ boolTests =
             """
                 |> Selector.decodeString fieldSelector
                 |> Expect.equal (Ok ( True, False ))
-    , test "Build graph" <|
+    , test "build graph" <|
         \_ ->
             Selector.render Selector.bool
                 |> Expect.equal ""
-    , test "Build field graph" <|
+    , test "build field graph" <|
         \_ ->
             Selector.succeed tuple2
                 |> Selector.select "foo" [] Selector.bool
@@ -366,14 +367,14 @@ intTests =
                         ++ "Expecting an INT"
                         |> Err
                     )
-    , test "Valid source with direct selector" <|
+    , test "valid source with direct selector" <|
         \_ ->
             """
             1
             """
                 |> Selector.decodeString Selector.int
                 |> Expect.equal (Ok 1)
-    , test "Invalid source with field selector" <|
+    , test "invalid source with field selector" <|
         \_ ->
             """
             {
@@ -391,7 +392,7 @@ intTests =
                         ++ "Expecting an INT"
                         |> Err
                     )
-    , test "Valid source with field selector" <|
+    , test "valid source with field selector" <|
         \_ ->
             """
             {
@@ -401,11 +402,11 @@ intTests =
             """
                 |> Selector.decodeString fieldSelector
                 |> Expect.equal (Ok ( 2, 3 ))
-    , test "Build graph" <|
+    , test "build graph" <|
         \_ ->
             Selector.render Selector.int
                 |> Expect.equal ""
-    , test "Build field graph" <|
+    , test "build field graph" <|
         \_ ->
             Selector.succeed tuple2
                 |> Selector.select "foo" [] Selector.int
@@ -438,14 +439,14 @@ floatTests =
                         ++ "Expecting a FLOAT"
                         |> Err
                     )
-    , test "Valid source with direct selector" <|
+    , test "valid source with direct selector" <|
         \_ ->
             """
             1
             """
                 |> Selector.decodeString Selector.float
                 |> Expect.equal (Ok 1)
-    , test "Invalid source with field selector" <|
+    , test "invalid source with field selector" <|
         \_ ->
             """
             {
@@ -463,7 +464,7 @@ floatTests =
                         ++ "Expecting a FLOAT"
                         |> Err
                     )
-    , test "Valid source with field selector" <|
+    , test "valid source with field selector" <|
         \_ ->
             """
             {
@@ -473,11 +474,11 @@ floatTests =
             """
                 |> Selector.decodeString fieldSelector
                 |> Expect.equal (Ok ( 0, 3.1 ))
-    , test "Build graph" <|
+    , test "build graph" <|
         \_ ->
             Selector.render Selector.float
                 |> Expect.equal ""
-    , test "Build field graph" <|
+    , test "build field graph" <|
         \_ ->
             Selector.succeed tuple2
                 |> Selector.select "foo" [] Selector.float
@@ -522,21 +523,21 @@ nullableTests =
                         ++ "    Expecting a STRING"
                         |> Err
                     )
-    , test "Valid nullable source with direct selector" <|
+    , test "valid nullable source with direct selector" <|
         \_ ->
             """
             null
             """
                 |> Selector.decodeString (Selector.nullable Selector.string)
                 |> Expect.equal (Ok Nothing)
-    , test "Valid source with direct selector" <|
+    , test "valid source with direct selector" <|
         \_ ->
             """
             "string value"
             """
                 |> Selector.decodeString (Selector.nullable Selector.string)
                 |> Expect.equal (Ok (Just "string value"))
-    , test "Invalid source with field selector" <|
+    , test "invalid source with field selector" <|
         \_ ->
             """
             {
@@ -566,7 +567,7 @@ nullableTests =
                         ++ "    Expecting a STRING"
                         |> Err
                     )
-    , test "Valid source with field selector" <|
+    , test "valid source with field selector" <|
         \_ ->
             """
             {
@@ -576,18 +577,18 @@ nullableTests =
             """
                 |> Selector.decodeString fieldSelector
                 |> Expect.equal (Ok ( Nothing, Just "string value" ))
-    , test "Build graph" <|
+    , test "build graph" <|
         \_ ->
             Selector.render (Selector.nullable Selector.string)
                 |> Expect.equal ""
-    , test "Build field graph" <|
+    , test "build field graph" <|
         \_ ->
             Selector.succeed tuple2
                 |> Selector.select "foo" [] (Selector.nullable Selector.string)
                 |> Selector.select "bar" [] (Selector.nullable Selector.string)
                 |> Selector.render
                 |> Expect.equal "foo bar"
-    , test "Build field nested graph" <|
+    , test "build field nested graph" <|
         \_ ->
             Selector.succeed tuple2
                 |> Selector.select "foo" [] (Selector.nullable Selector.string)
@@ -620,7 +621,7 @@ listTests =
                         ++ "Expecting a LIST"
                         |> Err
                     )
-    , test "Invalid source items with direct selector" <|
+    , test "invalid source items with direct selector" <|
         \_ ->
             """
             ["first", 0, "second"]
@@ -635,14 +636,14 @@ listTests =
                         ++ "Expecting a STRING"
                         |> Err
                     )
-    , test "Valid source with direct selector" <|
+    , test "valid source with direct selector" <|
         \_ ->
             """
             ["first", "second"]
             """
                 |> Selector.decodeString (Selector.list Selector.string)
                 |> Expect.equal (Ok [ "first", "second" ])
-    , test "Invalid source with field selector" <|
+    , test "invalid source with field selector" <|
         \_ ->
             """
             {
@@ -660,7 +661,7 @@ listTests =
                         ++ "Expecting a LIST"
                         |> Err
                     )
-    , test "Valid source with field selector" <|
+    , test "valid source with field selector" <|
         \_ ->
             """
             {
@@ -670,18 +671,18 @@ listTests =
             """
                 |> Selector.decodeString fieldSelector
                 |> Expect.equal (Ok ( [ True, False, False ], [ 1, 2, 0 ] ))
-    , test "Build graph" <|
+    , test "build graph" <|
         \_ ->
             Selector.render (Selector.list Selector.string)
                 |> Expect.equal ""
-    , test "Build field graph" <|
+    , test "build field graph" <|
         \_ ->
             Selector.succeed tuple2
                 |> Selector.select "foo" [] (Selector.list Selector.string)
                 |> Selector.select "bar" [] (Selector.list Selector.string)
                 |> Selector.render
                 |> Expect.equal "foo bar"
-    , test "Build field nested graph" <|
+    , test "build field nested graph" <|
         \_ ->
             Selector.succeed tuple2
                 |> Selector.select "foo" [] (Selector.list Selector.string)
@@ -714,7 +715,7 @@ arrayTests =
                         ++ "Expecting an ARRAY"
                         |> Err
                     )
-    , test "Invalid source items with direct selector" <|
+    , test "invalid source items with direct selector" <|
         \_ ->
             """
             ["first", 0, "second"]
@@ -729,14 +730,14 @@ arrayTests =
                         ++ "Expecting a STRING"
                         |> Err
                     )
-    , test "Valid source with direct selector" <|
+    , test "valid source with direct selector" <|
         \_ ->
             """
             ["first", "second"]
             """
                 |> Selector.decodeString (Selector.array Selector.string)
                 |> Expect.equal (Ok (Array.fromList [ "first", "second" ]))
-    , test "Invalid source with field selector" <|
+    , test "invalid source with field selector" <|
         \_ ->
             """
             {
@@ -754,7 +755,7 @@ arrayTests =
                         ++ "Expecting an ARRAY"
                         |> Err
                     )
-    , test "Valid source with field selector" <|
+    , test "valid source with field selector" <|
         \_ ->
             """
             {
@@ -769,18 +770,18 @@ arrayTests =
                         , Array.fromList [ 1, 2, 0 ]
                         )
                     )
-    , test "Build graph" <|
+    , test "build graph" <|
         \_ ->
             Selector.render (Selector.array Selector.string)
                 |> Expect.equal ""
-    , test "Build field graph" <|
+    , test "build field graph" <|
         \_ ->
             Selector.succeed tuple2
                 |> Selector.select "foo" [] (Selector.array Selector.string)
                 |> Selector.select "bar" [] (Selector.array Selector.string)
                 |> Selector.render
                 |> Expect.equal "foo bar"
-    , test "Build field nested graph" <|
+    , test "build field nested graph" <|
         \_ ->
             Selector.succeed tuple2
                 |> Selector.select "foo" [] (Selector.array Selector.string)
@@ -815,7 +816,7 @@ dictTests =
                         ++ "Expecting an OBJECT"
                         |> Err
                     )
-    , test "Invalid source items with direct selector" <|
+    , test "invalid source items with direct selector" <|
         \_ ->
             """
             {
@@ -833,7 +834,7 @@ dictTests =
                         ++ "Expecting a STRING"
                         |> Err
                     )
-    , test "Valid source with direct selector" <|
+    , test "valid source with direct selector" <|
         \_ ->
             """
             {
@@ -849,7 +850,7 @@ dictTests =
                         |> Dict.fromList
                         |> Ok
                     )
-    , test "Invalid source with field selector" <|
+    , test "invalid source with field selector" <|
         \_ ->
             """
             {
@@ -870,7 +871,7 @@ dictTests =
                         ++ "Expecting an OBJECT"
                         |> Err
                     )
-    , test "Valid source with field selector" <|
+    , test "valid source with field selector" <|
         \_ ->
             """
             {
@@ -897,18 +898,18 @@ dictTests =
                             ]
                         )
                     )
-    , test "Build graph" <|
+    , test "build graph" <|
         \_ ->
             Selector.render (Selector.dict Selector.string)
                 |> Expect.equal ""
-    , test "Build field graph" <|
+    , test "build field graph" <|
         \_ ->
             Selector.succeed tuple2
                 |> Selector.select "foo" [] (Selector.dict Selector.string)
                 |> Selector.select "bar" [] (Selector.dict Selector.string)
                 |> Selector.render
                 |> Expect.equal "foo bar"
-    , test "Build field nested graph" <|
+    , test "build field nested graph" <|
         \_ ->
             Selector.succeed tuple2
                 |> Selector.select "foo" [] (Selector.dict Selector.string)
@@ -943,7 +944,7 @@ keyValuePairsTests =
                         ++ "Expecting an OBJECT"
                         |> Err
                     )
-    , test "Invalid source items with direct selector" <|
+    , test "invalid source items with direct selector" <|
         \_ ->
             """
             {
@@ -961,7 +962,7 @@ keyValuePairsTests =
                         ++ "Expecting a STRING"
                         |> Err
                     )
-    , test "Valid source with direct selector" <|
+    , test "valid source with direct selector" <|
         \_ ->
             """
             {
@@ -976,7 +977,7 @@ keyValuePairsTests =
                         , ( "key2", "value 2" )
                         ]
                     )
-    , test "Invalid source with field selector" <|
+    , test "invalid source with field selector" <|
         \_ ->
             """
             {
@@ -997,7 +998,7 @@ keyValuePairsTests =
                         ++ "Expecting an OBJECT"
                         |> Err
                     )
-    , test "Valid source with field selector" <|
+    , test "valid source with field selector" <|
         \_ ->
             """
             {
@@ -1022,24 +1023,152 @@ keyValuePairsTests =
                           ]
                         )
                     )
-    , test "Build graph" <|
+    , test "build graph" <|
         \_ ->
             Selector.render (Selector.keyValuePairs Selector.string)
                 |> Expect.equal ""
-    , test "Build field graph" <|
+    , test "build field graph" <|
         \_ ->
             Selector.succeed tuple2
                 |> Selector.select "foo" [] (Selector.keyValuePairs Selector.string)
                 |> Selector.select "bar" [] (Selector.keyValuePairs Selector.string)
                 |> Selector.render
                 |> Expect.equal "foo bar"
-    , test "Build field nested graph" <|
+    , test "build field nested graph" <|
         \_ ->
             Selector.succeed tuple2
                 |> Selector.select "foo" [] (Selector.keyValuePairs Selector.string)
                 |> Selector.select "bar" [] (Selector.field "baz" [] (Selector.keyValuePairs Selector.string))
                 |> Selector.render
                 |> Expect.equal "foo bar{baz}"
+    ]
+
+
+atEmptyPathTests : List Test
+atEmptyPathTests =
+    let
+        selector =
+            Selector.at [] Selector.bool
+    in
+    [ test "invalid source with empty path" <|
+        \_ ->
+            """
+            0
+            """
+                |> Selector.decodeString selector
+                |> Result.mapError Selector.errorToString
+                |> Expect.equal
+                    ("Problem with the given value:\n"
+                        ++ "\n"
+                        ++ "0\n"
+                        ++ "\n"
+                        ++ "Expecting a BOOL"
+                        |> Err
+                    )
+    , test "valid source with empty path" <|
+        \_ ->
+            """
+            true
+            """
+                |> Selector.decodeString selector
+                |> Expect.equal (Ok True)
+    , test "graph" <|
+        \_ ->
+            selector
+                |> Selector.render
+                |> Expect.equal ""
+    ]
+
+
+atSingletonPathTests : List Test
+atSingletonPathTests =
+    let
+        selector =
+            Selector.at [ "foo" ] Selector.bool
+    in
+    [ test "invalid source with empty path" <|
+        \_ ->
+            """
+            {
+                "foo": 0
+            }
+            """
+                |> Selector.decodeString selector
+                |> Result.mapError Selector.errorToString
+                |> Expect.equal
+                    ("Problem with the value at json.foo:\n"
+                        ++ "\n"
+                        ++ "    0\n"
+                        ++ "\n"
+                        ++ "Expecting a BOOL"
+                        |> Err
+                    )
+    , test "valid source with empty path" <|
+        \_ ->
+            """
+            {
+                "foo": true
+            }
+            """
+                |> Selector.decodeString selector
+                |> Expect.equal (Ok True)
+    , test "graph" <|
+        \_ ->
+            selector
+                |> Selector.render
+                |> Expect.equal "foo"
+    ]
+
+
+atLongPathTests : List Test
+atLongPathTests =
+    let
+        selector =
+            Selector.at [ "foo", "bar" ] Selector.bool
+    in
+    [ test "invalid source with empty path" <|
+        \_ ->
+            """
+            {
+                "foo": {
+                    "bar": 0
+                }
+            }
+            """
+                |> Selector.decodeString selector
+                |> Result.mapError Selector.errorToString
+                |> Expect.equal
+                    ("Problem with the value at json.foo.bar:\n"
+                        ++ "\n"
+                        ++ "    0\n"
+                        ++ "\n"
+                        ++ "Expecting a BOOL"
+                        |> Err
+                    )
+    , test "valid source with empty path" <|
+        \_ ->
+            """
+            {
+                "foo": {
+                    "bar": true
+                }
+            }
+            """
+                |> Selector.decodeString selector
+                |> Expect.equal (Ok True)
+    , test "graph" <|
+        \_ ->
+            selector
+                |> Selector.render
+                |> Expect.equal "foo{bar}"
+    ]
+
+
+atTests : List Test
+atTests =
+    [ describe "empty path" atEmptyPathTests
+    , describe "singleton path" atSingletonPathTests
+    , describe "long path" atLongPathTests
     ]
 
 
@@ -1066,7 +1195,7 @@ indexTests =
                         ++ "Expecting an ARRAY"
                         |> Err
                     )
-    , test "Valid short source with direct selector" <|
+    , test "valid short source with direct selector" <|
         \_ ->
             """
             []
@@ -1081,14 +1210,14 @@ indexTests =
                         ++ "Expecting a LONGER array. Need index 0 but only see 0 entries"
                         |> Err
                     )
-    , test "Valid source with direct selector" <|
+    , test "valid source with direct selector" <|
         \_ ->
             """
             [null, "string value"]
             """
                 |> Selector.decodeString (Selector.index 1 Selector.string)
                 |> Expect.equal (Ok "string value")
-    , test "Invalid source with field selector" <|
+    , test "invalid source with field selector" <|
         \_ ->
             """
             {
@@ -1106,7 +1235,7 @@ indexTests =
                         ++ "Expecting an ARRAY"
                         |> Err
                     )
-    , test "Valid source with field selector" <|
+    , test "valid source with field selector" <|
         \_ ->
             """
             {
@@ -1116,18 +1245,18 @@ indexTests =
             """
                 |> Selector.decodeString fieldSelector
                 |> Expect.equal (Ok ( 0, "string value" ))
-    , test "Build graph" <|
+    , test "build graph" <|
         \_ ->
             Selector.render (Selector.index 0 Selector.string)
                 |> Expect.equal ""
-    , test "Build field graph" <|
+    , test "build field graph" <|
         \_ ->
             Selector.succeed tuple2
                 |> Selector.select "foo" [] (Selector.index 0 Selector.string)
                 |> Selector.select "bar" [] (Selector.index 0 Selector.string)
                 |> Selector.render
                 |> Expect.equal "foo bar"
-    , test "Build field nested graph" <|
+    , test "build field nested graph" <|
         \_ ->
             Selector.succeed tuple2
                 |> Selector.select "foo" [] (Selector.index 0 Selector.string)
@@ -1155,19 +1284,19 @@ maybeTests =
                 (Selector.field "age" [] (Selector.maybe Selector.int))
                 json
                 |> Expect.equal (Ok (Just 42))
-    , test "Invalid type of existing field" <|
+    , test "invalid type of existing field" <|
         \_ ->
             Selector.decodeString
                 (Selector.field "name" [] (Selector.maybe Selector.int))
                 json
                 |> Expect.equal (Ok Nothing)
-    , test "Null type of existing field" <|
+    , test "null type of existing field" <|
         \_ ->
             Selector.decodeString
                 (Selector.field "status" [] (Selector.maybe Selector.int))
                 json
                 |> Expect.equal (Ok Nothing)
-    , test "Not existing field" <|
+    , test "not existing field" <|
         \_ ->
             Selector.decodeString
                 (Selector.field "height" [] (Selector.maybe Selector.int))
@@ -1185,18 +1314,18 @@ maybeTests =
                         ++ "Expecting an OBJECT with a field named `height`"
                         |> Err
                     )
-    , test "Build graph" <|
+    , test "build graph" <|
         \_ ->
             Selector.render (Selector.maybe Selector.string)
                 |> Expect.equal ""
-    , test "Build field graph" <|
+    , test "build field graph" <|
         \_ ->
             Selector.succeed tuple2
                 |> Selector.select "foo" [] (Selector.maybe Selector.string)
                 |> Selector.select "bar" [] (Selector.maybe Selector.string)
                 |> Selector.render
                 |> Expect.equal "foo bar"
-    , test "Build field nested graph" <|
+    , test "build field nested graph" <|
         \_ ->
             Selector.succeed tuple2
                 |> Selector.select "foo" [] (Selector.maybe Selector.string)
@@ -1300,14 +1429,14 @@ oneOfMultipleNonFieldTests =
                         ++ "    Expecting an INT"
                         |> Err
                     )
-    , test "valid `User` source" <|
+    , test "valid `user` source" <|
         \_ ->
             """
             "Bob"
             """
                 |> Selector.decodeString selector
                 |> Expect.equal (Ok (User "user-id" "Bob"))
-    , test "valid `Counter` source" <|
+    , test "valid `counter` source" <|
         \_ ->
             """
             2
@@ -1400,7 +1529,7 @@ oneOfMultipleFieldTests =
                         ++ "    Expecting an OBJECT with a field named `count`"
                         |> Err
                     )
-    , test "valid `User` source" <|
+    , test "valid `user` source" <|
         \_ ->
             """
             {
@@ -1410,7 +1539,7 @@ oneOfMultipleFieldTests =
             """
                 |> Selector.decodeString selector
                 |> Expect.equal (Ok (User "user-id" "Bob"))
-    , test "valid `Counter` source" <|
+    , test "valid `counter` source" <|
         \_ ->
             """
             {
@@ -1544,14 +1673,14 @@ mapTests =
                         ++ "Expecting a STRING"
                         |> Err
                     )
-    , test "Valid source with direct selector" <|
+    , test "valid source with direct selector" <|
         \_ ->
             """
             "string value"
             """
                 |> Selector.decodeString (Selector.map String.length Selector.string)
                 |> Expect.equal (Ok 12)
-    , test "Invalid source with field selector" <|
+    , test "invalid source with field selector" <|
         \_ ->
             """
             {
@@ -1569,7 +1698,7 @@ mapTests =
                         ++ "Expecting a STRING"
                         |> Err
                     )
-    , test "Valid source with field selector" <|
+    , test "valid source with field selector" <|
         \_ ->
             """
             {
@@ -1579,18 +1708,18 @@ mapTests =
             """
                 |> Selector.decodeString fieldSelector
                 |> Expect.equal (Ok ( 12, 5 ))
-    , test "Build graph" <|
+    , test "build graph" <|
         \_ ->
             Selector.render (Selector.map String.length Selector.string)
                 |> Expect.equal ""
-    , test "Build field graph" <|
+    , test "build field graph" <|
         \_ ->
             Selector.succeed tuple2
                 |> Selector.select "foo" [] (Selector.map String.length Selector.string)
                 |> Selector.select "bar" [] (Selector.map String.length Selector.string)
                 |> Selector.render
                 |> Expect.equal "foo bar"
-    , test "Build field nested graph" <|
+    , test "build field nested graph" <|
         \_ ->
             Selector.succeed tuple2
                 |> Selector.select "foo" [] (Selector.map String.length Selector.string)
@@ -1650,14 +1779,14 @@ andThenTests =
                         ++ "Expecting a positive number but instead got: -1"
                         |> Err
                     )
-    , test "Valid source with direct selector" <|
+    , test "valid source with direct selector" <|
         \_ ->
             """
             1
             """
                 |> Selector.decodeString (onlyPositive Selector.int)
                 |> Expect.equal (Ok 1)
-    , test "Invalid source with field selector" <|
+    , test "invalid source with field selector" <|
         \_ ->
             """
             {
@@ -1675,7 +1804,7 @@ andThenTests =
                         ++ "Expecting an INT"
                         |> Err
                     )
-    , test "Valid source and invalid andThen with field selector" <|
+    , test "valid source and invalid andthen with field selector" <|
         \_ ->
             """
             {
@@ -1693,7 +1822,7 @@ andThenTests =
                         ++ "Invalid bar: 2"
                         |> Err
                     )
-    , test "Valid source and valid hardcoded andThen with field selector" <|
+    , test "valid source and valid hardcoded andthen with field selector" <|
         \_ ->
             """
             {
@@ -1703,7 +1832,7 @@ andThenTests =
             """
                 |> Selector.decodeString fieldSelector
                 |> Expect.equal (Ok ( ( False, "empty" ), 3.14 ))
-    , test "Invalid source and valid andThen with field selector" <|
+    , test "invalid source and valid andthen with field selector" <|
         \_ ->
             """
             {
@@ -1721,15 +1850,15 @@ andThenTests =
                         ++ "Expecting an OBJECT with a field named `second`"
                         |> Err
                     )
-    , test "Build graph" <|
+    , test "build graph" <|
         \_ ->
             Selector.render (onlyPositive Selector.int)
                 |> Expect.equal ""
-    , test "Build field graph" <|
+    , test "build field graph" <|
         \_ ->
             Selector.render fieldSelector
                 |> Expect.equal "bar foo"
-    , test "Build field nested graph" <|
+    , test "build field nested graph" <|
         \_ ->
             Selector.succeed tuple2
                 |> Selector.select "first" [] (Selector.map String.length Selector.string)
@@ -1754,7 +1883,7 @@ succeedTests =
             """
                 |> Selector.decodeString (Selector.succeed "str")
                 |> Expect.equal (Ok "str")
-    , test "Field selector" <|
+    , test "field selector" <|
         \_ ->
             """
             {
@@ -1764,15 +1893,15 @@ succeedTests =
             """
                 |> Selector.decodeString fieldSelector
                 |> Expect.equal (Ok ( 1, True ))
-    , test "Build graph" <|
+    , test "build graph" <|
         \_ ->
             Selector.render (Selector.succeed 3.14)
                 |> Expect.equal ""
-    , test "Build field graph" <|
+    , test "build field graph" <|
         \_ ->
             Selector.render fieldSelector
                 |> Expect.equal "foo bar"
-    , test "Build field nested graph" <|
+    , test "build field nested graph" <|
         \_ ->
             Selector.succeed tuple2
                 |> Selector.select "foo" [] (Selector.succeed Nothing)
@@ -1805,7 +1934,7 @@ failTests =
                         ++ "message"
                         |> Err
                     )
-    , test "Field selector" <|
+    , test "field selector" <|
         \_ ->
             """
             {
@@ -1823,15 +1952,15 @@ failTests =
                         ++ "message bar"
                         |> Err
                     )
-    , test "Build graph" <|
+    , test "build graph" <|
         \_ ->
             Selector.render (Selector.fail "message")
                 |> Expect.equal ""
-    , test "Build field graph" <|
+    , test "build field graph" <|
         \_ ->
             Selector.render fieldSelector
                 |> Expect.equal "foo bar"
-    , test "Build field nested graph" <|
+    , test "build field nested graph" <|
         \_ ->
             Selector.succeed tuple2
                 |> Selector.select "foo" [] (Selector.fail "message foo")
@@ -1864,7 +1993,7 @@ nullTests =
                         ++ "Expecting null"
                         |> Err
                     )
-    , test "Different type source with direct selector" <|
+    , test "different type source with direct selector" <|
         \_ ->
             """
             false
@@ -1879,14 +2008,14 @@ nullTests =
                         ++ "Expecting null"
                         |> Err
                     )
-    , test "Null source with direct selector" <|
+    , test "null source with direct selector" <|
         \_ ->
             """
             null
             """
                 |> Selector.decodeString (Selector.null 42)
                 |> Expect.equal (Ok 42)
-    , test "Same type source with field selector" <|
+    , test "same type source with field selector" <|
         \_ ->
             """
             {
@@ -1904,7 +2033,7 @@ nullTests =
                         ++ "Expecting null"
                         |> Err
                     )
-    , test "Different type source with field selector" <|
+    , test "different type source with field selector" <|
         \_ ->
             """
             {
@@ -1922,7 +2051,7 @@ nullTests =
                         ++ "Expecting null"
                         |> Err
                     )
-    , test "Valid source with field selector" <|
+    , test "valid source with field selector" <|
         \_ ->
             """
             {
@@ -1933,18 +2062,18 @@ nullTests =
                 |> Selector.decodeString fieldSelector
                 |> Expect.equal
                     (Ok ( False, 1 ))
-    , test "Build graph" <|
+    , test "build graph" <|
         \_ ->
             Selector.render (Selector.keyValuePairs Selector.string)
                 |> Expect.equal ""
-    , test "Build field graph" <|
+    , test "build field graph" <|
         \_ ->
             Selector.succeed tuple2
                 |> Selector.select "foo" [] (Selector.keyValuePairs Selector.string)
                 |> Selector.select "bar" [] (Selector.keyValuePairs Selector.string)
                 |> Selector.render
                 |> Expect.equal "foo bar"
-    , test "Build field nested graph" <|
+    , test "build field nested graph" <|
         \_ ->
             Selector.succeed tuple2
                 |> Selector.select "foo" [] (Selector.keyValuePairs Selector.string)
@@ -2139,7 +2268,7 @@ onMultipeFieldTests =
                         ++ "    Expecting an OBJECT with a field named `count`"
                         |> Err
                     )
-    , test "valid User source" <|
+    , test "valid user source" <|
         \_ ->
             """
             {
@@ -2149,7 +2278,7 @@ onMultipeFieldTests =
             """
                 |> Selector.decodeString selector
                 |> Expect.equal (Ok (User "user-id" "Bob"))
-    , test "valid Counter" <|
+    , test "valid counter" <|
         \_ ->
             """
             {
