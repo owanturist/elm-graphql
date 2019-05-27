@@ -1,17 +1,10 @@
-module GraphQL.Argument
-    exposing
-        ( Argument
-        , Value
-        , array
-        , bool
-        , float
-        , int
-        , list
-        , null
-        , object
-        , string
-        , toValue
-        )
+module GraphQL.Argument exposing
+    ( Argument, Value
+    , string, int, float, bool, null
+    , list, array
+    , object
+    , toValue
+    )
 
 {-| Define GraphQL inputs in Elm
 
@@ -267,9 +260,12 @@ array argument =
 
 {-| Convert `Argument` into `Value`.
 
-    toValue (string "hello")      == Json.Encode.string "hello"
-    toValue (bool True)           == Json.Encode.bool True
-    toValue null                  == Json.Encode.null
+    toValue (string "hello") == Json.Encode.string "hello"
+
+    toValue (bool True) == Json.Encode.bool True
+
+    toValue null == Json.Encode.null
+
     toValue [ int 1, float 3.14 ] == Json.Encode.list [ Json.Encode.int 1, Json.Encode.float 3.14 ]
 
 -}

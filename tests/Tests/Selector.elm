@@ -1738,6 +1738,7 @@ andThenTests =
                 (\x ->
                     if x < 0 then
                         Selector.fail ("Expecting a positive number but instead got: " ++ Debug.toString x)
+
                     else
                         Selector.succeed x
                 )

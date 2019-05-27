@@ -1,28 +1,10 @@
-module GraphQL
-    exposing
-        ( Error
-        , GraphQL
-        , Request
-        , get
-        , mutation
-        , post
-        , query
-        , render
-        , send
-        , subscription
-        , toDecoder
-        , toHttpRequest
-        , toTask
-        , withBearerToken
-        , withCacheBuster
-        , withCredentials
-        , withDataDecoder
-        , withHeader
-        , withHeaders
-        , withQueryParam
-        , withQueryParams
-        , withTimeout
-        )
+module GraphQL exposing
+    ( GraphQL, query, mutation, subscription, render, toDecoder
+    , Request, get, post
+    , withHeader, withHeaders, withBearerToken, withQueryParam
+    , withQueryParams, withTimeout, withCredentials, withCacheBuster, withDataDecoder
+    , Error, toHttpRequest, toTask, send
+    )
 
 {-| Building and sending GraphQL.
 
@@ -225,6 +207,7 @@ requestBuilder isGetMethod url graphql =
                 , [ ( "query", graph ) ]
                 , Http.emptyBody
                 )
+
             else
                 ( "POST"
                 , []

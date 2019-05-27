@@ -1,10 +1,9 @@
-module GraphQL.Internal
-    exposing
-        ( Argument(..)
-        , argumentToString
-        , renderPairsOfArguments
-        , wrap
-        )
+module GraphQL.Internal exposing
+    ( Argument(..)
+    , argumentToString
+    , renderPairsOfArguments
+    , wrap
+    )
 
 import Array exposing (Array)
 import Json.Encode as Json exposing (encode)
@@ -67,6 +66,7 @@ renderPairsOfArguments : List ( String, Argument ) -> Maybe String
 renderPairsOfArguments arguments =
     if List.isEmpty arguments then
         Nothing
+
     else
         arguments
             |> List.map (\( key, argument ) -> key ++ ":" ++ argumentToString argument)

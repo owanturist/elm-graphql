@@ -1,45 +1,13 @@
-module GraphQL.Selector
-    exposing
-        ( Error(..)
-        , Selector
-        , Value
-        , andThen
-        , array
-        , at
-        , bool
-        , decodeString
-        , decodeValue
-        , dict
-        , errorToString
-        , fail
-        , field
-        , fieldWithAlias
-        , float
-        , index
-        , int
-        , keyValuePairs
-        , list
-        , map
-        , map2
-        , map3
-        , map4
-        , map5
-        , map6
-        , map7
-        , map8
-        , maybe
-        , null
-        , nullable
-        , on
-        , oneOf
-        , render
-        , select
-        , selectWithAlias
-        , string
-        , succeed
-        , toDecoder
-        , value
-        )
+module GraphQL.Selector exposing
+    ( Selector, string, bool, int, float
+    , nullable, list, array, dict, keyValuePairs
+    , field, fieldWithAlias, at, index, on
+    , maybe, oneOf
+    , map, map2, map3, map4, map5, map6, map7, map8
+    , select, selectWithAlias
+    , render, toDecoder, decodeString, decodeValue, Value, Error(..), errorToString
+    , andThen, succeed, fail, value, null
+    )
 
 {-| Build GraphQL with decoders for turning JSON values into Elm values.
 
@@ -219,6 +187,7 @@ map fn (Selector query decoder) =
 {-| Try two selectors and then combine the result
 We can use this to select objects with many fields:
 
+
     type alias Point =
         { x : Float, y : Float }
 
@@ -227,7 +196,6 @@ We can use this to select objects with many fields:
         map2 Point
             (field "x" [] float)
             (field "y" [] float)
-
 
     -- decodeString point """{ "x": 3, "y": 4 }""" == Ok { x = 3, y = 4 }
 
@@ -440,8 +408,9 @@ nullable =
 
 {-| Decode a JSON array into an Elm `List`.
 
-    decodeString (list int) "[1,2,3]"       == Ok [1,2,3]
-    decodeString (list bool) "[true,false]" == Ok [True,False]
+    decodeString (list int) "[1,2,3]" == Ok [ 1, 2, 3 ]
+
+    decodeString (list bool) "[true,false]" == Ok [ True, False ]
 
 -}
 list : Selector a -> Selector (List a)
@@ -451,8 +420,9 @@ list =
 
 {-| Decode a JSON array into an Elm `Array`.
 
-    decodeString (array int) "[1,2,3]"       == Ok (Array.fromList [1,2,3])
-    decodeString (array bool) "[true,false]" == Ok (Array.fromList [True,False])
+    decodeString (array int) "[1,2,3]" == Ok (Array.fromList [ 1, 2, 3 ])
+
+    decodeString (array bool) "[true,false]" == Ok (Array.fromList [ True, False ])
 
 -}
 array : Selector a -> Selector (Array a)
@@ -463,7 +433,7 @@ array =
 {-| Decode a JSON object into an Elm `Dict`.
 
     decodeString (dict int) "{ \"alice\": 42, \"bob\": 99 }"
-      == Dict.fromList [("alice", 42), ("bob", 99)]
+        == Dict.fromList [ ( "alice", 42 ), ( "bob", 99 ) ]
 
 -}
 dict : Selector a -> Selector (Dict String a)
@@ -474,7 +444,7 @@ dict =
 {-| Decode a JSON object into an Elm `List` of pairs.
 
     decodeString (keyValuePairs int) "{ \"alice\": 42, \"bob\": 99 }"
-      == [("alice", 42), ("bob", 99)]
+        == [ ( "alice", 42 ), ( "bob", 99 ) ]
 
 -}
 keyValuePairs : Selector a -> Selector (List ( String, a ))
@@ -565,7 +535,7 @@ fieldWithAlias =
 
 This is really just a shorthand for saying things like:
 
-    field "person" [] (field "name" [] string) == at ["person","name"] string
+    field "person" [] (field "name" [] string) == at [ "person", "name" ] string
 
 -}
 at : List String -> Selector a -> Selector a
@@ -606,10 +576,10 @@ on selectors =
 in a couple different formats. For example, say you want to read an array of
 numbers, but some of them are `null`.
 
+
     badInt : Decoder Int
     badInt =
         oneOf [ int, null 0 ]
-
 
     -- decodeString (list badInt) "[1,2,null,4]" == Ok [1,2,0,4]
 
