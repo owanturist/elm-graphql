@@ -20,8 +20,7 @@ type Argument
     | Float Float
     | Bool Bool
     | Null
-    | List (List Argument)
-    | Array (Array Argument)
+    | Array (List Argument)
     | Object (List ( String, Argument ))
 
 
@@ -43,11 +42,8 @@ argumentToString argument =
         Null ->
             encode 0 Json.null
 
-        List listOfArguments ->
+        Array listOfArguments ->
             renderListOfArguments listOfArguments
-
-        Array arrayOfArguments ->
-            renderListOfArguments (Array.toList arrayOfArguments)
 
         Object objectConfiguration ->
             renderPairsOfArguments objectConfiguration

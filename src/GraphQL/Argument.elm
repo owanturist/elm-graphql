@@ -165,7 +165,7 @@ Equals to:
 -}
 nullable : (a -> Argument) -> Maybe a -> Argument
 nullable tagger argument =
-    Maybe.withDefault null (Maybe.map tagger argument)
+    Maybe.withDefault Internal.Null (Maybe.map tagger argument)
 
 
 {-| Pass object of arguments into a graph.
@@ -267,7 +267,7 @@ Equals to:
 -}
 list : List Argument -> Argument
 list =
-    Internal.List
+    Internal.Array
 
 
 {-| Pass list of specific arguments into a graph.
@@ -290,7 +290,7 @@ Equals to:
 -}
 listOf : (a -> Argument) -> List a -> Argument
 listOf tagger arguments =
-    list (List.map tagger arguments)
+    Internal.Array (List.map tagger arguments)
 
 
 {-| Pass array of arguments into a graph.
@@ -329,7 +329,7 @@ Equals to:
 -}
 array : Array Argument -> Argument
 array =
-    Internal.Array
+    Internal.Array << Array.toList
 
 
 {-| Pass array of specific arguments into a graph.
@@ -352,7 +352,7 @@ Equals to:
 -}
 arrayOf : (a -> Argument) -> Array a -> Argument
 arrayOf tagger arguments =
-    array (Array.map tagger arguments)
+    Internal.Array (Array.foldr ((::) << tagger) [] arguments)
 
 
 {-| Pass set of specific arguments into a graph.
@@ -375,7 +375,7 @@ Equals to:
 -}
 setOf : (a -> Argument) -> Set a -> Argument
 setOf tagger arguments =
-    list (Set.foldr ((::) << tagger) [] arguments)
+    Internal.Array (Set.foldr ((::) << tagger) [] arguments)
 
 
 {-| Convert `Argument` into `Value`.
@@ -408,11 +408,8 @@ toValue argument =
         Internal.Null ->
             Json.null
 
-        Internal.List listOfArguments ->
+        Internal.Array listOfArguments ->
             Json.list toValue listOfArguments
-
-        Internal.Array arrayOfArguments ->
-            Json.array toValue arrayOfArguments
 
         Internal.Object objectConfiguration ->
             Json.object (List.map (Tuple.mapSecond toValue) objectConfiguration)
