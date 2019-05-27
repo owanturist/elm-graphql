@@ -53,27 +53,27 @@ tests =
                     ]
                     |> Internal.argumentToString
                     |> Expect.equal """{asString:"str",asInt:1,asFloat:3.14,asBool:true,asNull:null}"""
-        , test "GraphQL.Argument.list" <|
+        , test "GraphQL.Argument.listOf" <|
             \_ ->
-                Argument.list identity
+                Argument.listOf identity
                     [ Argument.string "str"
                     , Argument.int 1
                     , Argument.float 3.14
-                    , Argument.list identity
+                    , Argument.listOf identity
                         [ Argument.bool True
                         , Argument.null
                         ]
                     ]
                     |> Internal.argumentToString
                     |> Expect.equal """["str",1,3.14,[true,null]]"""
-        , test "GraphQL.Argument.array" <|
+        , test "GraphQL.Argument.arrayOf" <|
             \_ ->
-                Argument.array identity
+                Argument.arrayOf identity
                     (Array.fromList
                         [ Argument.string "str"
                         , Argument.int 1
                         , Argument.float 3.14
-                        , Argument.array identity
+                        , Argument.arrayOf identity
                             (Array.fromList
                                 [ Argument.bool True
                                 , Argument.null
@@ -124,20 +124,20 @@ toValueTests =
             Argument.null
                 |> Argument.toValue
                 |> Expect.equal Encode.null
-    , fuzz (Fuzz.tuple3 ( Fuzz.string, Fuzz.float, Fuzz.bool )) "GraphQL.Argument.list" <|
+    , fuzz (Fuzz.tuple3 ( Fuzz.string, Fuzz.float, Fuzz.bool )) "GraphQL.Argument.listOf" <|
         \( string, float, bool ) ->
-            Argument.list identity
+            Argument.listOf identity
                 [ Argument.string string
                 , Argument.float float
                 , Argument.bool bool
                 , Argument.null
-                , Argument.list identity
+                , Argument.listOf identity
                     [ Argument.string "list"
                     , Argument.int 0
                     , Argument.float 3.14
                     , Argument.bool True
                     ]
-                , Argument.array identity
+                , Argument.arrayOf identity
                     (Array.fromList
                         [ Argument.string "list"
                         , Argument.int 0
@@ -175,19 +175,19 @@ toValueTests =
                             ]
                         ]
                     )
-    , fuzz (Fuzz.tuple3 ( Fuzz.string, Fuzz.int, Fuzz.bool )) "GraphQL.Argument.array" <|
+    , fuzz (Fuzz.tuple3 ( Fuzz.string, Fuzz.int, Fuzz.bool )) "GraphQL.Argument.arrayOf" <|
         \( string, int, bool ) ->
             [ Argument.string string
             , Argument.int int
             , Argument.bool bool
             , Argument.null
-            , Argument.list identity
+            , Argument.listOf identity
                 [ Argument.string "list"
                 , Argument.int 0
                 , Argument.float 3.14
                 , Argument.bool True
                 ]
-            , Argument.array identity
+            , Argument.arrayOf identity
                 (Array.fromList
                     [ Argument.string "list"
                     , Argument.int 0
@@ -200,7 +200,7 @@ toValueTests =
                 ]
             ]
                 |> Array.fromList
-                |> Argument.array identity
+                |> Argument.arrayOf identity
                 |> Argument.toValue
                 |> Expect.equal
                     ([ Encode.string string
@@ -235,7 +235,7 @@ toValueTests =
             , ( "bool", Argument.bool bool )
             , ( "null", Argument.null )
             , ( "list"
-              , Argument.list identity
+              , Argument.listOf identity
                     [ Argument.string "list"
                     , Argument.int 0
                     , Argument.float 3.14
@@ -243,7 +243,7 @@ toValueTests =
                     ]
               )
             , ( "array"
-              , Argument.array identity
+              , Argument.arrayOf identity
                     (Array.fromList
                         [ Argument.string "list"
                         , Argument.int 0
