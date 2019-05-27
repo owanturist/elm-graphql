@@ -1,7 +1,7 @@
 module GraphQL.Argument exposing
     ( Argument, Value
-    , string, int, float, bool, null
-    , list, listOf, array, arrayOf
+    , string, int, float, bool, null, nullable
+    , list, listOf, array, arrayOf, setOf
     , object, dictOf
     , toValue
     )
@@ -17,7 +17,7 @@ module GraphQL.Argument exposing
 
 # Arrays
 
-@docs list, listOf, array, arrayOf
+@docs list, listOf, array, arrayOf, setOf
 
 
 # Objects
