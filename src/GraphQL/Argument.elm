@@ -2,7 +2,7 @@ module GraphQL.Argument exposing
     ( Argument, Value
     , string, int, float, bool, null
     , list, listOf, array, arrayOf
-    , object
+    , object, dictOf
     , toValue
     )
 
@@ -12,7 +12,7 @@ module GraphQL.Argument exposing
 # Primitives
 
 @docs Argument, Value
-@docs string, int, float, bool, null
+@docs string, int, float, bool, null, nullable
 
 
 # Arrays
@@ -22,7 +22,7 @@ module GraphQL.Argument exposing
 
 # Objects
 
-@docs object
+@docs object, dictOf
 
 
 # Conversions
@@ -32,8 +32,10 @@ module GraphQL.Argument exposing
 -}
 
 import Array exposing (Array)
+import Dict exposing (Dict)
 import GraphQL.Internal as Internal
 import Json.Encode as Json
+import Set exposing (Set)
 
 
 {-| Represents a JavaScript value.
@@ -143,11 +145,34 @@ null =
     Internal.Null
 
 
+{-| Pass nullable argument into a graph.
+
+    GraphQL.Selector.field "fieldName"
+        [ ( "asString", GraphQL.Argument.nullable GraphQL.Argument.string (Just "foo") )
+        , ( "asNull", GraphQL.Argument.nullable GraphQL.Argument.string Nothing )
+        ]
+        GraphQL.Selector.int
+
+Equals to:
+
+    """
+    fieldName(
+        asString: "foo",
+        asNull: null
+    )
+    """
+
+-}
+nullable : (a -> Argument) -> Maybe a -> Argument
+nullable tagger argument =
+    Maybe.withDefault null (Maybe.map tagger argument)
+
+
 {-| Pass object of arguments into a graph.
 
     GraphQL.Selector.field "fieldName"
         [ ( "asObject"
-          , object
+          , GraphQL.Argument.object
                 [ ( "asString", GraphQL.Argument.string "foo" )
                 , ( "asInt", GraphQL.Argument.int 1 )
                 , ( "asFloat", GraphQL.Argument.float 3.14 )
@@ -176,17 +201,51 @@ object =
     Internal.Object
 
 
+{-| Pass dict of arguments into a graph.
+
+    GraphQL.Selector.field "fieldName"
+        [ ( "asObject"
+          , GraphQL.Argument.dictOf
+                String.fromInt
+                GraphQL.Argument.string
+                (Dict.fromList
+                    [ ( 2, "second" )
+                    , ( 1, "first" )
+                    , ( 3, "third" )
+                    ]
+                )
+          )
+        ]
+        GraphQL.Selector.int
+
+Equals to:
+
+    """
+    fieldName(asObject: {
+        1: "first",
+        2: "second",
+        3: "third"
+    })
+    """
+
+-}
+dictOf : (k -> String) -> (v -> Argument) -> Dict k v -> Argument
+dictOf keyTagger valueTagger arguments =
+    Dict.foldr (\key value acc -> ( keyTagger key, valueTagger value ) :: acc) [] arguments
+        |> Internal.Object
+
+
 {-| Pass list of arguments into a graph.
 
     GraphQL.Selector.field "fieldName"
-        [ ( "asInConsistentList"
+        [ ( "asInConsistentArray"
           , GraphQL.Argument.list
                 [ GraphQL.Argument.string "foo"
                 , GraphQL.Argument.int 0
                 , GraphQL.Argument.list [ GraphQL.Argument.bool False ]
                 ]
           )
-        , ( "asConsistentList"
+        , ( "asConsistentArray"
           , GraphQL.Argument.list
                 [ GraphQL.Argument.int 0
                 , GraphQL.Argument.int 1
@@ -200,8 +259,8 @@ Equals to:
 
     """
     fieldName(
-        asInConsistentList: ["foo", 0, [false]],
-        asConsistentList: [0, 1, 2]
+        asInConsistentArray: ["foo", 0, [false]],
+        asConsistentArray: [0, 1, 2]
     )
     """
 
@@ -214,11 +273,8 @@ list =
 {-| Pass list of specific arguments into a graph.
 
     GraphQL.Selector.field "fieldName"
-        [ ( "asInConsistentList"
+        [ ( "asArray"
           , GraphQL.Argument.listOf GraphQL.Argument.int [ 0, 1, 2 ]
-          )
-        , ( "asConsistentList"
-          , GraphQL.Argument.listOf GraphQL.Argument.float [ 4.1, 3.14 ]
           )
         ]
         GraphQL.Selector.int
@@ -227,8 +283,7 @@ Equals to:
 
     """
     fieldName(
-        asInConsistentList: [0, 1, 2],
-        asConsistentList: [4.1, 3.14]
+        asArray: [0, 1, 2]
     )
     """
 
@@ -266,8 +321,8 @@ Equals to:
 
     """
     fieldName(
-        asInConsistentList: ["foo", 0, [false]],
-        asConsistentList: [0, 1, 2]
+        asInConsistentArray: ["foo", 0, [false]],
+        asConsistentArray: [0, 1, 2]
     )
     """
 
@@ -280,11 +335,8 @@ array =
 {-| Pass array of specific arguments into a graph.
 
     GraphQL.Selector.field "fieldName"
-        [ ( "asInConsistentList"
+        [ ( "asArray"
           , GraphQL.Argument.arrayOf GraphQL.Argument.int (Array.fromList [ 0, 1, 2 ])
-          )
-        , ( "asConsistentList"
-          , GraphQL.Argument.arrayOf GraphQL.Argument.float (Array.fromList [ 4.1, 3.14 ])
           )
         ]
         GraphQL.Selector.int
@@ -293,8 +345,7 @@ Equals to:
 
     """
     fieldName(
-        asInConsistentList: [0, 1, 2],
-        asConsistentList: [4.1, 3.14]
+        asArray: [0, 1, 2]
     )
     """
 
@@ -302,6 +353,29 @@ Equals to:
 arrayOf : (a -> Argument) -> Array a -> Argument
 arrayOf tagger arguments =
     array (Array.map tagger arguments)
+
+
+{-| Pass set of specific arguments into a graph.
+
+    GraphQL.Selector.field "fieldName"
+        [ ( "asArray"
+          , GraphQL.Argument.setOf GraphQL.Argument.int (Set.fromList [ 0, 2, 1, 0 ])
+          )
+        ]
+        GraphQL.Selector.int
+
+Equals to:
+
+    """
+    fieldName(
+        asArray: [0, 1, 2]
+    )
+    """
+
+-}
+setOf : (a -> Argument) -> Set a -> Argument
+setOf tagger arguments =
+    list (Set.foldr ((::) << tagger) [] arguments)
 
 
 {-| Convert `Argument` into `Value`.
