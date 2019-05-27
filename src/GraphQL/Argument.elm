@@ -1,7 +1,7 @@
 module GraphQL.Argument exposing
     ( Argument, Value
     , string, int, float, bool, null
-    , list, array
+    , list, listOf, array, arrayOf
     , object
     , toValue
     )
@@ -17,7 +17,7 @@ module GraphQL.Argument exposing
 
 # Arrays
 
-@docs list, array
+@docs list, listOf, array, arrayOf
 
 
 # Objects
@@ -42,7 +42,7 @@ type alias Value =
     Json.Value
 
 
-{-| Represents a GraphQL input values.
+{-| Represents a GraphQL argument values.
 -}
 type alias Argument =
     Internal.Argument
@@ -50,11 +50,10 @@ type alias Argument =
 
 {-| Pass string argument into a graph.
 
-    GraphQL.Selector.succeed Constructor
-        |> GraphQL.Selector.field "fieldName"
-            [ ( "asString", string "foo" )
-            ]
-            GraphQL.Selector.int
+    GraphQL.Selector.field "fieldName"
+        [ ( "asString", GraphQL.Argument.string "foo" )
+        ]
+        GraphQL.Selector.int
 
 Equals to:
 
@@ -70,11 +69,10 @@ string =
 
 {-| Pass int argument into a graph.
 
-    GraphQL.Selector.succeed Constructor
-        |> GraphQL.Selector.field "fieldName"
-            [ ( "asInt", int 1 )
-            ]
-            GraphQL.Selector.int
+    GraphQL.Selector.field "fieldName"
+        [ ( "asInt", GraphQL.Argument.int 1 )
+        ]
+        GraphQL.Selector.int
 
 Equals to:
 
@@ -90,11 +88,10 @@ int =
 
 {-| Pass float argument into a graph.
 
-    GraphQL.Selector.succeed Constructor
-        |> GraphQL.Selector.field "fieldName"
-            [ ( "asFloat", float 3.14 )
-            ]
-            GraphQL.Selector.int
+    GraphQL.Selector.field "fieldName"
+        [ ( "asFloat", GraphQL.Argument.float 3.14 )
+        ]
+        GraphQL.Selector.int
 
 Equals to:
 
@@ -110,11 +107,10 @@ float =
 
 {-| Pass bool argument into a graph.
 
-    GraphQL.Selector.succeed Constructor
-        |> GraphQL.Selector.field "fieldName"
-            [ ( "asBool", bool True )
-            ]
-            GraphQL.Selector.int
+    GraphQL.Selector.field "fieldName"
+        [ ( "asBool", GraphQL.Argument.bool True )
+        ]
+        GraphQL.Selector.int
 
 Equals to:
 
@@ -130,11 +126,10 @@ bool =
 
 {-| Pass null argument into a graph.
 
-    GraphQL.Selector.succeed Constructor
-        |> GraphQL.Selector.field "fieldName"
-            [ ( "asNull", null )
-            ]
-            GraphQL.Selector.int
+    GraphQL.Selector.field "fieldName"
+        [ ( "asNull", GraphQL.Argument.null )
+        ]
+        GraphQL.Selector.int
 
 Equals to:
 
@@ -150,19 +145,18 @@ null =
 
 {-| Pass object of arguments into a graph.
 
-    GraphQL.Selector.succeed Constructor
-        |> GraphQL.Selector.field "fieldName"
-            [ ( "asObject"
-              , object
-                    [ ( "asString", string "foo" )
-                    , ( "asInt", int 1 )
-                    , ( "asFloat", float 3.14 )
-                    , ( "asBool", bool True )
-                    , ( "asNull", null )
-                    ]
-              )
-            ]
-            GraphQL.Selector.int
+    GraphQL.Selector.field "fieldName"
+        [ ( "asObject"
+          , object
+                [ ( "asString", GraphQL.Argument.string "foo" )
+                , ( "asInt", GraphQL.Argument.int 1 )
+                , ( "asFloat", GraphQL.Argument.float 3.14 )
+                , ( "asBool", GraphQL.Argument.bool True )
+                , ( "asNull", GraphQL.Argument.null )
+                ]
+          )
+        ]
+        GraphQL.Selector.int
 
 Equals to:
 
@@ -184,89 +178,142 @@ object =
 
 {-| Pass list of arguments into a graph.
 
-    GraphQL.Selector.succeed Constructor
-        |> GraphQL.Selector.field "fieldName"
-            [ ( "asInConsistentList"
-              , list
-                    [ string "foo"
-                    , int 0
-                    , list [ bool False ]
-                    ]
-              )
-            , ( "asConsistentList"
-              , list
-                    [ int 0
-                    , int 1
-                    , int 2
-                    ]
-              )
-            ]
-            GraphQL.Selector.int
+    GraphQL.Selector.field "fieldName"
+        [ ( "asInConsistentList"
+          , GraphQL.Argument.list
+                [ GraphQL.Argument.string "foo"
+                , GraphQL.Argument.int 0
+                , GraphQL.Argument.list [ GraphQL.Argument.bool False ]
+                ]
+          )
+        , ( "asConsistentList"
+          , GraphQL.Argument.list
+                [ GraphQL.Argument.int 0
+                , GraphQL.Argument.int 1
+                , GraphQL.Argument.int 2
+                ]
+          )
+        ]
+        GraphQL.Selector.int
 
 Equals to:
 
     """
     fieldName(
-        asInConsistentList: ["foo", 0, false],
+        asInConsistentList: ["foo", 0, [false]],
         asConsistentList: [0, 1, 2]
     )
     """
 
 -}
-list : (a -> Argument) -> List a -> Argument
-list argument =
-    Internal.List << List.map argument
+list : List Argument -> Argument
+list =
+    Internal.List
+
+
+{-| Pass list of specific arguments into a graph.
+
+    GraphQL.Selector.field "fieldName"
+        [ ( "asInConsistentList"
+          , GraphQL.Argument.listOf GraphQL.Argument.int [ 0, 1, 2 ]
+          )
+        , ( "asConsistentList"
+          , GraphQL.Argument.listOf GraphQL.Argument.float [ 4.1, 3.14 ]
+          )
+        ]
+        GraphQL.Selector.int
+
+Equals to:
+
+    """
+    fieldName(
+        asInConsistentList: [0, 1, 2],
+        asConsistentList: [4.1, 3.14]
+    )
+    """
+
+-}
+listOf : (a -> Argument) -> List a -> Argument
+listOf tagger arguments =
+    list (List.map tagger arguments)
 
 
 {-| Pass array of arguments into a graph.
 
-    GraphQL.Selector.succeed Constructor
-        |> GraphQL.Selector.field "fieldName"
-            [ ( "asInConsistentArray"
-              , array
-                    (Array.fromList
-                        [ string "foo"
-                        , int 0
-                        , array [ bool False ]
-                        ]
-                    )
-              )
-            , ( "asConsistentArray"
-              , array
-                    (Array.fromList
-                        [ int 0
-                        , int 1
-                        , int 2
-                        ]
-                    )
-              )
-            ]
-            GraphQL.Selector.int
+    GraphQL.Selector.field "fieldName"
+        [ ( "asInConsistentArray"
+          , GraphQL.Argument.array
+                (Array.fromList
+                    [ GraphQL.Argument.string "foo"
+                    , GraphQL.Argument.int 0
+                    , GraphQL.Argument.array (Array.fromList [ GraphQL.Argument.bool False ])
+                    ]
+                )
+          )
+        , ( "asConsistentArray"
+          , GraphQL.Argument.array
+                (Array.fromList
+                    [ GraphQL.Argument.int 0
+                    , GraphQL.Argument.int 1
+                    , GraphQL.Argument.int 2
+                    ]
+                )
+          )
+        ]
+        GraphQL.Selector.int
 
 Equals to:
 
     """
     fieldName(
-        asInConsistentList: ["foo", 0, false],
+        asInConsistentList: ["foo", 0, [false]],
         asConsistentList: [0, 1, 2]
     )
     """
 
 -}
-array : (a -> Argument) -> Array a -> Argument
-array argument =
-    Internal.Array << Array.map argument
+array : Array Argument -> Argument
+array =
+    Internal.Array
+
+
+{-| Pass array of specific arguments into a graph.
+
+    GraphQL.Selector.field "fieldName"
+        [ ( "asInConsistentList"
+          , GraphQL.Argument.arrayOf GraphQL.Argument.int (Array.fromList [ 0, 1, 2 ])
+          )
+        , ( "asConsistentList"
+          , GraphQL.Argument.arrayOf GraphQL.Argument.float (Array.fromList [ 4.1, 3.14 ])
+          )
+        ]
+        GraphQL.Selector.int
+
+Equals to:
+
+    """
+    fieldName(
+        asInConsistentList: [0, 1, 2],
+        asConsistentList: [4.1, 3.14]
+    )
+    """
+
+-}
+arrayOf : (a -> Argument) -> Array a -> Argument
+arrayOf tagger arguments =
+    array (Array.map tagger arguments)
 
 
 {-| Convert `Argument` into `Value`.
 
-    toValue (string "hello") == Json.Encode.string "hello"
+    GraphQL.Argument.toValue (GraphQL.Argument.string "hello") == Json.Encode.string "hello"
 
-    toValue (bool True) == Json.Encode.bool True
+    GraphQL.Argument.toValue (GraphQL.Argument.bool True) == Json.Encode.bool True
 
-    toValue null == Json.Encode.null
+    GraphQL.Argument.toValue GraphQL.Argument.null == Json.Encode.null
 
-    toValue [ int 1, float 3.14 ] == Json.Encode.list [ Json.Encode.int 1, Json.Encode.float 3.14 ]
+    GraphQL.Argument.toValue (GraphQL.Argument.listOf GraphQL.Argument.int [ 0, 1, 2 ])
+        == Json.Encode.listOf Json.Encode.int [ 0, 1, 2 ]
 
 -}
 toValue : Argument -> Value
