@@ -1,4 +1,4 @@
-module Tests.Selector exposing (tests)
+module Selector exposing (tests)
 
 import Array
 import Dict

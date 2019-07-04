@@ -1,4 +1,4 @@
-module Tests.Argument exposing (tests)
+module Argument exposing (tests)
 
 import Array
 import Dict
