@@ -3,7 +3,7 @@ module GraphQL exposing
     , Request, get, post
     , withHeader, withHeaders, withBearerToken
     , withQueryParam, withQueryParams, withTimeout, withCredentials, withDataPath
-    , Error(..), send, sendWithTracker, toTask, toTaskWithCacheBuster
+    , Error(..), send, sendCancelable, cancel, toTask, toTaskWithCacheBuster
     )
 
 {-| Building and sending GraphQL.
@@ -26,7 +26,7 @@ Building of HTTP request has been based on [`elm-http-builder`](http://package.e
 
 # Make a Request
 
-@docs Error, send, sendWithTracker, toTask, toTaskWithCacheBuster
+@docs Error, send, sendCancelable, cancel, toTask, toTaskWithCacheBuster
 
 -}
 
@@ -167,8 +167,7 @@ subscription =
 -}
 render : GraphQL a -> String
 render (GraphQL operation name selector) =
-    (operation ++ " " ++ name)
-        ++ Internal.wrap "{" "}" (Selector.render selector)
+    (operation ++ " " ++ name) ++ Internal.wrap "{" "}" (Selector.render selector)
 
 
 {-| Build a Decoder from a GraphQL.
@@ -194,23 +193,20 @@ type Request a
         }
 
 
-requestBuilder : Bool -> String -> GraphQL a -> Request a
-requestBuilder isGetMethod url graphql =
+initRequest : Bool -> String -> GraphQL a -> Request a
+initRequest isGetMethod url graphql =
     let
-        graph =
-            render graphql
-
         ( method, queryParams, body ) =
             if isGetMethod then
                 ( "GET"
-                , [ ( "query", graph ) ]
+                , [ ( "query", render graphql ) ]
                 , Http.emptyBody
                 )
 
             else
                 ( "POST"
                 , []
-                , [ ( "query", Encode.string graph ) ]
+                , [ ( "query", Encode.string (render graphql) ) ]
                     |> Encode.object
                     |> Http.jsonBody
                 )
@@ -239,7 +235,7 @@ requestBuilder isGetMethod url graphql =
 -}
 get : String -> GraphQL a -> Request a
 get =
-    requestBuilder True
+    initRequest True
 
 
 {-| Start building a POST request with a given URL.
@@ -248,12 +244,12 @@ get =
         |> GraphQL.Selector.field "me" [] userSelector
         |> GraphQL.Selector.field "articles" [] (GraphQL.Selector.list articleSelector)
         |> query "InitialData"
-        |> get "https://example.com/graphql"
+        |> post "https://example.com/graphql"
 
 -}
 post : String -> GraphQL a -> Request a
 post =
-    requestBuilder False
+    initRequest False
 
 
 {-| Add a single header to a request.
@@ -377,7 +373,7 @@ withCredentials with (Request builder) =
     Request { builder | withCredentials = with }
 
 
-{-| Set a path of graphql data. By default it set as `[ "data" ]`.
+{-| Set a path of graphql data. Default value is `[ "data" ]`.
 
     GraphQL.Selector.succeed Tuple.pair
         |> GraphQL.Selector.field "me" [] userSelector
@@ -463,11 +459,18 @@ send =
     sendHttpRequest Nothing
 
 
-{-| Send the Http request with tracker.
+{-| Send the cancelable Http request.
 -}
-sendWithTracker : String -> (Result Error a -> msg) -> Request a -> Cmd msg
-sendWithTracker =
+sendCancelable : String -> (Result Error a -> msg) -> Request a -> Cmd msg
+sendCancelable =
     sendHttpRequest << Just
+
+
+{-| Try to cancel an ongoing cancelable Http request.
+-}
+cancel : String -> Cmd msg
+cancel =
+    Http.cancel
 
 
 toHttpTask : Maybe String -> Request a -> Task Error a
