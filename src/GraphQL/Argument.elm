@@ -33,7 +33,7 @@ module GraphQL.Argument exposing
 
 import Array exposing (Array)
 import Dict exposing (Dict)
-import GraphQL.Internal as Internal
+import Internal
 import Json.Encode as Json
 import Set exposing (Set)
 

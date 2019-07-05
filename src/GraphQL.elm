@@ -30,9 +30,9 @@ Building of HTTP request has been based on [`elm-http-builder`](http://package.e
 
 -}
 
-import GraphQL.Internal as Internal
 import GraphQL.Selector as Selector exposing (Selector)
 import Http
+import Internal
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode
 import Task exposing (Task)

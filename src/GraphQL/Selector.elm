@@ -55,7 +55,7 @@ module GraphQL.Selector exposing
 
 import Array exposing (Array)
 import Dict exposing (Dict)
-import GraphQL.Internal as Internal exposing (Argument)
+import Internal exposing (Argument)
 import Json.Decode as Json exposing (Decoder)
 
 
