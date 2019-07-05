@@ -1638,8 +1638,8 @@ oneOfTest =
             [ test "invalid source" <|
                 \_ ->
                     """
-                {}
-                """
+                    {}
+                    """
                         |> Selector.decodeString selector
                         |> Result.mapError Selector.errorToString
                         |> Expect.equal
@@ -1655,10 +1655,10 @@ oneOfTest =
             , test "valid source" <|
                 \_ ->
                     """
-                {
-                    "username": "Bob"
-                }
-                """
+                    {
+                        "username": "Bob"
+                    }
+                    """
                         |> Selector.decodeString selector
                         |> Expect.equal (Ok "Bob")
 
