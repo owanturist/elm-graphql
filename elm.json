@@ -3,7 +3,7 @@
     "name": "owanturist/elm-graphql",
     "summary": "Build GraphQL schemes and decoder together",
     "license": "MIT",
-    "version": "4.0.0",
+    "version": "5.0.0",
     "exposed-modules": [
         "GraphQL",
         "GraphQL.Argument",
