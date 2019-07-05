@@ -1,9 +1,9 @@
 module GraphQL exposing
     ( GraphQL, query, mutation, subscription, render, toDecoder
     , Request, get, post
-    , withHeader, withHeaders, withBearerToken, withQueryParam
-    , withQueryParams, withTimeout, withCredentials, withCacheBuster, withDataDecoder
-    , Error, toHttpRequest, toTask, send
+    , withHeader, withHeaders, withBearerToken
+    , withQueryParam, withQueryParams, withTimeout, withCredentials, withDataPath
+    , Error(..), send, sendWithTracker, toTask, toTaskWithCacheBuster
     )
 
 {-| Building and sending GraphQL.
@@ -20,20 +20,20 @@ Building of HTTP request has been based on [`elm-http-builder`](http://package.e
 
 @docs Request, get, post
 
-@docs withHeader, withHeaders, withBearerToken, withQueryParam
-@docs withQueryParams, withTimeout, withCredentials, withCacheBuster, withDataDecoder
+@docs withHeader, withHeaders, withBearerToken
+@docs withQueryParam, withQueryParams, withTimeout, withCredentials, withDataPath
 
 
 # Make a Request
 
-@docs Error, toHttpRequest, toTask, send
+@docs Error, send, sendWithTracker, toTask, toTaskWithCacheBuster
 
 -}
 
 import GraphQL.Selector as Selector exposing (Selector)
 import Http
 import Internal
-import Json.Decode as Decode exposing (Decoder)
+import Json.Decode as Decode exposing (Decoder, decodeString, errorToString)
 import Json.Encode as Encode
 import Task exposing (Task)
 import Time
@@ -163,7 +163,7 @@ subscription =
     GraphQL "subscription"
 
 
-{-| Render GraphQL representation from a GraphQL.
+{-| Render GraphQL string representation from a GraphQL.
 -}
 render : GraphQL a -> String
 render (GraphQL operation name selector) =
@@ -187,11 +187,10 @@ type Request a
         , headers : List Http.Header
         , body : Http.Body
         , decoder : Decoder a
-        , dataDecoder : Decoder a -> Decoder a
+        , dataPath : List String
         , timeout : Maybe Float
         , withCredentials : Bool
         , queryParams : List ( String, String )
-        , cacheBuster : Maybe String
         }
 
 
@@ -222,17 +221,16 @@ requestBuilder isGetMethod url graphql =
         , headers = []
         , body = body
         , decoder = toDecoder graphql
-        , dataDecoder = Decode.field "data"
+        , dataPath = [ "data" ]
         , timeout = Nothing
         , withCredentials = False
         , queryParams = queryParams
-        , cacheBuster = Nothing
         }
 
 
 {-| Start building a GET request with a given URL.
 
-    GraphQL.Selector.succeed (,)
+    GraphQL.Selector.succeed Tuple.pair
         |> GraphQL.Selector.field "me" [] userSelector
         |> GraphQL.Selector.field "articles" [] (GraphQL.Selector.list articleSelector)
         |> query "InitialData"
@@ -246,7 +244,7 @@ get =
 
 {-| Start building a POST request with a given URL.
 
-    GraphQL.Selector.succeed (,)
+    GraphQL.Selector.succeed Tuple.pair
         |> GraphQL.Selector.field "me" [] userSelector
         |> GraphQL.Selector.field "articles" [] (GraphQL.Selector.list articleSelector)
         |> query "InitialData"
@@ -260,7 +258,7 @@ post =
 
 {-| Add a single header to a request.
 
-    GraphQL.Selector.succeed (,)
+    GraphQL.Selector.succeed Tuple.pair
         |> GraphQL.Selector.field "me" [] userSelector
         |> GraphQL.Selector.field "articles" [] (GraphQL.Selector.list articleSelector)
         |> query "InitialData"
@@ -276,7 +274,7 @@ withHeader key value (Request builder) =
 
 {-| Add many headers to a request.
 
-    GraphQL.Selector.succeed (,)
+    GraphQL.Selector.succeed Tuple.pair
         |> GraphQL.Selector.field "me" [] userSelector
         |> GraphQL.Selector.field "articles" [] (GraphQL.Selector.list articleSelector)
         |> query "InitialData"
@@ -299,7 +297,7 @@ withHeaders headerPairs (Request builder) =
 
 {-| Add a bearer token to a request.
 
-    GraphQL.Selector.succeed (,)
+    GraphQL.Selector.succeed Tuple.pair
         |> GraphQL.Selector.field "me" [] userSelector
         |> GraphQL.Selector.field "articles" [] (GraphQL.Selector.list articleSelector)
         |> query "InitialData"
@@ -308,13 +306,13 @@ withHeaders headerPairs (Request builder) =
 
 -}
 withBearerToken : String -> Request a -> Request a
-withBearerToken value (Request builder) =
-    Request { builder | headers = builder.headers ++ [ Http.header "Authorization" ("Bearer " ++ value) ] }
+withBearerToken value request =
+    withHeader "Authorization" ("Bearer " ++ value) request
 
 
 {-| Add a query param to the url for the request.
 
-    GraphQL.Selector.succeed (,)
+    GraphQL.Selector.succeed Tuple.pair
         |> GraphQL.Selector.field "me" [] userSelector
         |> GraphQL.Selector.field "articles" [] (GraphQL.Selector.list articleSelector)
         |> query "InitialData"
@@ -332,7 +330,7 @@ withQueryParam key value (Request builder) =
 
 {-| Add some query params to the url for the request.
 
-    GraphQL.Selector.succeed (,)
+    GraphQL.Selector.succeed Tuple.pair
         |> GraphQL.Selector.field "me" [] userSelector
         |> GraphQL.Selector.field "articles" [] (GraphQL.Selector.list articleSelector)
         |> query "InitialData"
@@ -350,7 +348,7 @@ withQueryParams queryParams (Request builder) =
 
 {-| Set the `timeout` setting on the request.
 
-    GraphQL.Selector.succeed (,)
+    GraphQL.Selector.succeed Tuple.pair
         |> GraphQL.Selector.field "me" [] userSelector
         |> GraphQL.Selector.field "articles" [] (GraphQL.Selector.list articleSelector)
         |> query "InitialData"
@@ -366,7 +364,7 @@ withTimeout timeout (Request builder) =
 {-| Set the `withCredentials` flag on the request to True. Works via
 [`XMLHttpRequest#withCredentials`](https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest/withCredentials).
 
-    GraphQL.Selector.succeed (,)
+    GraphQL.Selector.succeed Tuple.pair
         |> GraphQL.Selector.field "me" [] userSelector
         |> GraphQL.Selector.field "articles" [] (GraphQL.Selector.list articleSelector)
         |> query "InitialData"
@@ -379,42 +377,19 @@ withCredentials with (Request builder) =
     Request { builder | withCredentials = with }
 
 
-{-| Send the request with a Time based cache buster added to the URL.
-You provide a key for an extra query param, and when the request is sent that
-query param will be given a value with the current timestamp.
+{-| Set a path of graphql data. By default it set as `[ "data" ]`.
 
-    type Msg
-        = InitialData (Result Http.Error (User, List Article))
-
-    GraphQL.Selector.succeed (,)
+    GraphQL.Selector.succeed Tuple.pair
         |> GraphQL.Selector.field "me" [] userSelector
         |> GraphQL.Selector.field "articles" [] (GraphQL.Selector.list articleSelector)
         |> query "InitialData"
         |> get "https://example.com/graphql"
-        |> withCacheBuster "cache_buster"
-        |> send InitialData
-
-    -- makes a request to https://example.com/graphql?cache_buster=1481633217383
+        |> withDataPath [ "my", "custom", "data", "path" ]
 
 -}
-withCacheBuster : String -> Request a -> Request a
-withCacheBuster paramName (Request builder) =
-    Request { builder | cacheBuster = Just paramName }
-
-
-{-| Set a decoder of data container. By default it set as `Decode.field "data"`.
-
-    GraphQL.Selector.succeed (,)
-        |> GraphQL.Selector.field "me" [] userSelector
-        |> GraphQL.Selector.field "articles" [] (GraphQL.Selector.list articleSelector)
-        |> query "InitialData"
-        |> get "https://example.com/graphql"
-        |> withDataDecoder (Decode.at [ "my", "custom", "data", "path" ])
-
--}
-withDataDecoder : (Decoder a -> Decoder a) -> Request a -> Request a
-withDataDecoder dataDecoder (Request builder) =
-    Request { builder | dataDecoder = dataDecoder }
+withDataPath : List String -> Request a -> Request a
+withDataPath dataPath (Request builder) =
+    Request { builder | dataPath = dataPath }
 
 
 {-| A Request can fail in a couple ways:
@@ -429,69 +404,146 @@ withDataDecoder dataDecoder (Request builder) =
     explains what went wrong with your JSON decoder or whatever.
 
 -}
-type alias Error =
-    Http.Error
+type Error
+    = BadUrl String
+    | Timeout
+    | NetworkError
+    | BadStatus Int
+    | BadBody String
 
 
-{-| Extract the `Http.Request` component of the builder in case you want to use it directly.
-**This function is lossy** and will discard some of the extra stuff that HttpBuilder allows you to do.
+responseHandler : Decoder a -> Http.Response String -> Result Error a
+responseHandler decoder response =
+    case response of
+        Http.BadUrl_ url ->
+            Err (BadUrl url)
 
-Things that will be lost:
+        Http.Timeout_ ->
+            Err Timeout
 
-  - Attaching a cache buster to requests using `withCacheBuster`
+        Http.NetworkError_ ->
+            Err NetworkError
 
--}
-toHttpRequest : Request a -> Http.Request a
-toHttpRequest (Request builder) =
+        Http.BadStatus_ meta _ ->
+            Err (BadStatus meta.statusCode)
+
+        Http.GoodStatus_ _ body ->
+            case decodeString decoder body of
+                Ok value ->
+                    Ok value
+
+                Err err ->
+                    Err (BadBody (errorToString err))
+
+
+sendHttpRequest : Maybe String -> (Result Error a -> msg) -> Request a -> Cmd msg
+sendHttpRequest tracker tagger (Request builder) =
     let
-        fullUrl =
-            case joinUrlEncoded builder.queryParams of
-                "" ->
-                    builder.url
-
-                queryString ->
-                    builder.url ++ "?" ++ queryString
+        config =
+            { method = builder.method
+            , headers = builder.headers
+            , url = buildFullUrl builder.url builder.queryParams
+            , body = builder.body
+            , expect = Http.expectStringResponse tagger (responseHandler (Decode.at builder.dataPath builder.decoder))
+            , timeout = builder.timeout
+            , tracker = tracker
+            }
     in
-    Http.request
-        { method = builder.method
-        , url = fullUrl
-        , headers = builder.headers
-        , body = builder.body
-        , expect = Http.expectJson (builder.dataDecoder builder.decoder)
-        , timeout = builder.timeout
-        , withCredentials = builder.withCredentials
-        }
+    if builder.withCredentials then
+        Http.riskyRequest config
+
+    else
+        Http.request config
 
 
-toPlainTask : Request a -> Task Error a
-toPlainTask =
-    Http.toTask << toHttpRequest
+{-| Send the Http request.
+-}
+send : (Result Error a -> msg) -> Request a -> Cmd msg
+send =
+    sendHttpRequest Nothing
+
+
+{-| Send the Http request with tracker.
+-}
+sendWithTracker : String -> (Result Error a -> msg) -> Request a -> Cmd msg
+sendWithTracker =
+    sendHttpRequest << Just
+
+
+toHttpTask : Maybe String -> Request a -> Task Error a
+toHttpTask cacheBuster request =
+    Task.andThen
+        (\(Request builder) ->
+            let
+                config =
+                    { method = builder.method
+                    , headers = builder.headers
+                    , url = buildFullUrl builder.url builder.queryParams
+                    , body = builder.body
+                    , resolver = Http.stringResolver (responseHandler (Decode.at builder.dataPath builder.decoder))
+                    , timeout = builder.timeout
+                    }
+            in
+            if builder.withCredentials then
+                Http.riskyTask config
+
+            else
+                Http.task config
+        )
+        (case cacheBuster of
+            Nothing ->
+                Task.succeed request
+
+            Just buster ->
+                Task.map
+                    ((|>) request << withQueryParam buster << String.fromInt << Time.posixToMillis)
+                    Time.now
+        )
 
 
 {-| Convert the `Request` to a `Task` with all options applied.
-`toTask` differs from `toRequest` in that it retains all extra behavior allowed by
-HttpBuilder, including:
 
-  - Attaching a cache buster to requests using `withCacheBuster`
+    GraphQL.Selector.succeed Tuple.pair
+        |> GraphQL.Selector.field "me" [] userSelector
+        |> GraphQL.Selector.field "articles" [] (GraphQL.Selector.list articleSelector)
+        |> query "InitialData"
+        |> get "https://example.com/graphql"
+        |> toTask
+
+    -- makes a task of request to https://example.com/graphql
 
 -}
 toTask : Request a -> Task Error a
-toTask ((Request { cacheBuster }) as request) =
-    case cacheBuster of
-        Nothing ->
-            toPlainTask request
-
-        Just buster ->
-            Time.now
-                |> Task.map ((|>) request << withQueryParam buster << String.fromInt << Time.posixToMillis)
-                |> Task.andThen toPlainTask
+toTask =
+    toHttpTask Nothing
 
 
-{-| Send the request.
+{-| Convert the `Request` to a `Task` with a Time based cache buster added to the URL.
+You provide a key for an extra query param, and when the request is sent that
+query param will be given a value with the current timestamp.
+
+    GraphQL.Selector.succeed Tuple.pair
+        |> GraphQL.Selector.field "me" [] userSelector
+        |> GraphQL.Selector.field "articles" [] (GraphQL.Selector.list articleSelector)
+        |> query "InitialData"
+        |> get "https://example.com/graphql"
+        |> toTaskWithCacheBuster "cache_buster"
+
+    -- makes a task of request to https://example.com/graphql?cache_buster=1481633217383
+
 -}
-send : (Result Error a -> msg) -> Request a -> Cmd msg
-send tagger request =
-    Task.attempt tagger (toTask request)
+toTaskWithCacheBuster : String -> Request a -> Task Error a
+toTaskWithCacheBuster =
+    toHttpTask << Just
+
+
+buildFullUrl : String -> List ( String, String ) -> String
+buildFullUrl url queryParams =
+    if List.isEmpty queryParams then
+        url
+
+    else
+        url ++ "?" ++ joinUrlEncoded queryParams
 
 
 joinUrlEncoded : List ( String, String ) -> String
