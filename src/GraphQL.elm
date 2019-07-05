@@ -21,6 +21,7 @@ Building of HTTP request has been based on [`elm-http-builder`](http://package.e
 @docs Request, get, post
 
 @docs withHeader, withHeaders, withBearerToken
+
 @docs withQueryParam, withQueryParams, withTimeout, withCredentials, withDataPath
 
 
