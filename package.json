@@ -5,9 +5,19 @@
   "scripts": {
     "test": "elm-test"
   },
-  "author": "Anton Ovechkin <owanturist@gmail.com>",
+  "author": {
+    "name": "Anton Ovechkin",
+    "email": "owanturist@gmail.com"
+  },
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/owanturist/elm-graphql.git"
+  },
   "devDependencies": {
-    "elm-test": "github:rtfeldman/node-test-runner#0.19"
+    "elm": "^0.19.0-no-deps",
+    "elm-analyse": "^0.16.4",
+    "elm-format": "^0.8.1",
+    "elm-test": "^0.19.0"
   }
 }

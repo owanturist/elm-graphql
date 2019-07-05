@@ -5,7 +5,6 @@ module GraphQL.Internal exposing
     , wrap
     )
 
-import Array exposing (Array)
 import Json.Encode as Json exposing (encode)
 
 
