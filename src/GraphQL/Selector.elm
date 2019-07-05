@@ -5,7 +5,8 @@ module GraphQL.Selector exposing
     , maybe, oneOf
     , map, map2, map3, map4, map5, map6, map7, map8
     , select, selectWithAlias
-    , render, toDecoder, decodeString, decodeValue, Value, Error(..), errorToString
+    , Value, render, toDecoder, decodeString, decodeValue
+    , Error(..), errorToString
     , andThen, succeed, fail, null
     )
 
@@ -44,7 +45,12 @@ module GraphQL.Selector exposing
 
 # Run Selectors
 
-@docs render, toDecoder, decodeString, decodeValue, Value, Error, errorToString
+@docs Value, render, toDecoder, decodeString, decodeValue
+
+
+# Errors
+
+@docs Error, errorToString
 
 
 # Fancy Decoding
