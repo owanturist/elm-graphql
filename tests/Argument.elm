@@ -21,7 +21,7 @@ import Dict
 import Expect exposing (Expectation)
 import Fuzz
 import GraphQL.Argument as Argument
-import GraphQL.Internal as Internal
+import Internal
 import Json.Encode as Encode exposing (encode)
 import Set
 import Test exposing (Test, describe, fuzz, test)

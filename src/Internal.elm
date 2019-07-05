@@ -1,4 +1,4 @@
-module GraphQL.Internal exposing
+module Internal exposing
     ( Argument(..)
     , argumentToString
     , renderPairsOfArguments
