@@ -1,12 +1,12 @@
 module GraphQL.Selector exposing
     ( Selector, string, bool, int, float
-    , nullable, list, array, dict, keyValuePairs
+    , nullable, list, array
     , field, fieldWithAlias, at, index, on
     , maybe, oneOf
     , map, map2, map3, map4, map5, map6, map7, map8
     , select, selectWithAlias
     , render, toDecoder, decodeString, decodeValue, Value, Error(..), errorToString
-    , andThen, succeed, fail, value, null
+    , andThen, succeed, fail, null
     )
 
 {-| Build GraphQL with decoders for turning JSON values into Elm values.
@@ -19,7 +19,7 @@ module GraphQL.Selector exposing
 
 # Data Structures
 
-@docs nullable, list, array, dict, keyValuePairs
+@docs nullable, list, array
 
 
 # Object Primitives
@@ -49,12 +49,11 @@ module GraphQL.Selector exposing
 
 # Fancy Decoding
 
-@docs andThen, succeed, fail, value, null
+@docs andThen, succeed, fail, null
 
 -}
 
 import Array exposing (Array)
-import Dict exposing (Dict)
 import Internal exposing (Argument)
 import Json.Decode as Json exposing (Decoder)
 
@@ -368,16 +367,6 @@ fail =
     primitive << Json.fail
 
 
-{-| Do not do anything with a JSON value, just bring it into Elm as a `Value`.
-This can be useful if you have particularly crazy data that you would like to
-deal with later. Or if you are going to send it out a port and do not care
-about its structure.
--}
-value : Selector Value
-value =
-    primitive Json.value
-
-
 {-| Decode a `null` value into some Elm value.
 
     decodeString (null False) "null" == Ok False
@@ -428,28 +417,6 @@ list =
 array : Selector a -> Selector (Array a)
 array =
     container Json.array
-
-
-{-| Decode a JSON object into an Elm `Dict`.
-
-    decodeString (dict int) "{ \"alice\": 42, \"bob\": 99 }"
-        == Dict.fromList [ ( "alice", 42 ), ( "bob", 99 ) ]
-
--}
-dict : Selector a -> Selector (Dict String a)
-dict =
-    container Json.dict
-
-
-{-| Decode a JSON object into an Elm `List` of pairs.
-
-    decodeString (keyValuePairs int) "{ \"alice\": 42, \"bob\": 99 }"
-        == [ ( "alice", 42 ), ( "bob", 99 ) ]
-
--}
-keyValuePairs : Selector a -> Selector (List ( String, a ))
-keyValuePairs =
-    container Json.keyValuePairs
 
 
 {-| Decode a JSON array, requiring a particular index.
